@@ -33,6 +33,13 @@ export async function join(code, nick, avatar) {
   }
   if (!slot) throw new Error("FULL");
 
+  // 다른 팀 코드로 들어갔다가 바꾼 경우: 예전 팀 자리를 비워 그 팀 인원이 줄지 않게 한다(새 자리를 얻은 뒤에만)
+  const old = (await get(R(`sessions/${sid}/players/${uid}`))).val();
+  if (old && old.team !== team) {
+    const ob = `sessions/${sid}/teams/${old.team}`;
+    await Promise.all([set(R(`${ob}/members/${uid}`), null), set(R(`${ob}/pos/${uid}`), null)]).catch(() => {});
+    await set(R(`${ob}/slots/${old.slot}`), false).catch(() => {});
+  }
   await set(R(`sessions/${sid}/players/${uid}`), { team, slot }); // 보안 규칙이 이 값으로 팀을 확인
   memberRef = R(`${base}/members/${uid}`);
   await set(memberRef, { nick, avatar, online: true });

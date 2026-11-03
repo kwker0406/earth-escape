@@ -119,7 +119,7 @@ const AVATARS = ["🐱","🐶","🐰","🦊","🐼","🐸","🐧","🐻"];
 const STATE = { wait: "시작 전", play: "진행 중", pause: "일시정지", end: "종료" };
 $("url").textContent = new URL("./", location.href).href;
 
-let current = null, stopWatch = null, data = null, pending = null;
+let current = null, stopWatch = null, data = null, pending = null, cardSig = "";
 
 $("loginBtn").onclick = async () => {
   $("err").textContent = "";
@@ -180,12 +180,18 @@ function clock() {
 }
 setInterval(clock, 500);
 
-// 팀별 작은 지도: 벽과 접속 중인 팀원 위치
+// 팀별 작은 지도: 벽과 접속 중인 팀원·괴물 위치. 카드는 그대로 두고 지도만 다시 칠한다.
+const S = 7, minis = {};
 function miniMap(code, members) {
-  const S = 7, cv = document.createElement("canvas"), dpr = devicePixelRatio || 1;
+  const cv = minis[code] = document.createElement("canvas"), dpr = devicePixelRatio || 1;
   cv.width = MAP[0].length * S * dpr; cv.height = MAP.length * S * dpr;
   cv.style.width = MAP[0].length * S + "px"; cv.style.height = MAP.length * S + "px";
-  const g = cv.getContext("2d"); g.scale(dpr, dpr);
+  cv.setAttribute("aria-label", `${data.meta.teams[code]}팀 위치 지도`);
+  paintMini(cv, code, members);
+  return cv;
+}
+function paintMini(cv, code, members) {
+  const g = cv.getContext("2d"), dpr = devicePixelRatio || 1; g.setTransform(dpr, 0, 0, dpr, 0, 0);
   MAP.forEach((row, y) => [...row].forEach((ch, x) => {
     g.fillStyle = ch === "#" ? "#3a3150" : ch === "D" ? "#8a4b2a" : ch === "E" ? "#2f6b4f" : ch === "H" ? "#7a5a3a" : "#211c2e";
     g.fillRect(x * S, y * S, S, S);
@@ -198,8 +204,6 @@ function miniMap(code, members) {
     const q = data.pos[code]?.[kid];
     if (v.online && q && !q.jail) g.fillText(AVATARS[v.avatar] ?? "❔", q.x * S + S / 2, q.y * S + S / 2);
   }
-  cv.setAttribute("aria-label", `${data.meta.teams[code]}팀 위치 지도`);
-  return cv;
 }
 
 function render() {
@@ -208,6 +212,12 @@ function render() {
   $("controls").querySelector('[data-act="start"]').disabled = m.state === "play";
   $("controls").querySelector('[data-act="pause"]').disabled = m.state !== "play";
   const codes = Object.keys(m.teams).sort((a, b) => m.teams[a] - m.teams[b]);
+  const membersOf = code => Object.entries(data.members[code] || {}).filter(([, v]) => v.nick);
+  // 위치만 바뀌었으면 카드는 그대로 두고 작은 지도만 다시 칠함(다시 만들면 교사가 누르던 버튼이 사라져 클릭이 씹힘)
+  const sig = JSON.stringify([current, m.name, m.teams, m.maxMembers, data.members, data.kicked, data.progress,
+    codes.map(c => Object.entries(data.pos[c] || {}).filter(([, q]) => q.jail).map(([k]) => k))]);
+  if (sig === cardSig) { codes.forEach(c => minis[c] && paintMini(minis[c], c, membersOf(c))); return clock(); }
+  cardSig = sig;
   const pr = code => ({ floor: 1, solved: 0, wrong: 0, score: 0, ...data.progress[code] });
   // 순위: 점수 → 층 → 푼 문제 순
   const ranked = [...codes].sort((a, b) => pr(b).score - pr(a).score || pr(b).floor - pr(a).floor || pr(b).solved - pr(a).solved);
@@ -216,7 +226,7 @@ function render() {
     const s = document.createElement("span"); s.textContent = `${rank[c]}위 ${m.teams[c]}팀 · ${pr(c).score}점`; return s;
   }));
   $("teams").replaceChildren(...codes.map(code => {
-    const members = Object.entries(data.members[code] || {}).filter(([, v]) => v.nick);
+    const members = membersOf(code);
     const card = document.createElement("div"); card.className = "team";
     const h = document.createElement("h3");
     h.append(`${rank[code]}위 · ${m.teams[code]}팀`); const sm = document.createElement("small");
@@ -228,7 +238,7 @@ function render() {
       const dot = document.createElement("i"); dot.className = "dot";
       const n = document.createElement("span"); n.className = "n"; n.textContent = `${AVATARS[v.avatar] ?? "❔"} ${v.nick}`;
       const k = document.createElement("button"); k.textContent = "내보내기";
-      k.onclick = () => confirm(`${v.nick} 학생을 내보낼까요?\n이 기기로는 이 팀에 다시 들어올 수 없어요.`) && net.kick(current, code, kid);
+      k.onclick = () => confirm(`${v.nick} 학생을 내보낼까요?\n'다시 받기'를 누르기 전까지 이 기기로는 이 팀에 들어올 수 없어요.`) && net.kick(current, code, kid);
       li.append(dot, n, k); ul.append(li);
     }
     const p = pr(code), row = document.createElement("div"); row.className = "row";

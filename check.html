@@ -44,6 +44,11 @@ $("go").onclick = async () => {
     ["반 목록 읽기(교사 전용)", () => get(R("classes")), false],
     ["전체 팀 코드 읽기(교사 전용)", () => get(R("codes")), false],
     ["새 팀 코드 만들기(교사 전용)", () => set(R("codes/ZZZZ"), sid), false],
+    ["다른 팀 빈자리에 남의 이름 쓰기", () => set(R(`${base(B)}/slots/s1`), "someone"), false],
+    ["내 자리 비우기(팀을 바꿀 때 필요)", async () => {
+      const slot = (await get(R(`sessions/${sid}/players/${uid}/slot`))).val();
+      await set(R(`${base(A)}/slots/${slot}`), false);
+    }, true],
   ];
   for (const [label, run, allowed] of cases) {
     let ok; try { await run(); ok = true; } catch { ok = false; }

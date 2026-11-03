@@ -128,7 +128,7 @@ const checkRotate = () => document.body.classList.toggle("land",
 addEventListener("resize", checkRotate); addEventListener("orientationchange", checkRotate); checkRotate();
 let avatar = 0, me = null, mates = {}, dir = null, lastStep = 0, meta = { state: "wait" };
 let mon = null, monR = null, grace = 0, quiz = null; // mon: 서버의 괴물 {n,x,y}, quiz: { i: 문제 번호, lock: 다시 풀 수 있는 시각 }
-let hideMs = 0, lastT = 0, mStep = 0, mTarget = null, hideBlockUntil = 0, blockedMsgUntil = 0;
+let drawKey = "", hideMs = 0, lastT = 0, mStep = 0, mTarget = null, hideBlockUntil = 0, blockedMsgUntil = 0;
 
 // ── 입장 ──
 AVATARS.forEach((a, i) => {
@@ -154,10 +154,10 @@ $("go").onclick = async () => {
   try {
     const { uid, last } = await net.join(code, nick, avatar);
     try { localStorage.setItem("escape-profile", JSON.stringify({ code, nick, avatar })); } catch {}
-    me = { uid, nick, avatar, ...(last && walkable(last.x, last.y) ? last : start), d: "d" };
+    me = { uid, code, nick, avatar, ...(last && walkable(last.x, last.y) ? last : start), d: "d" };
     me.rx = me.x; me.ry = me.y; me.jail ||= 0;
     // 새로고침으로 숨기 제한·재사용 대기를 초기화하지 못하게 기기에 저장해 둔 값을 되살림
-    try { ({ hideMs = 0, hideBlockUntil = 0 } = JSON.parse(localStorage.getItem("escape-hide-" + uid)) || {}); } catch {}
+    try { ({ hideMs = 0, hideBlockUntil = 0 } = JSON.parse(localStorage.getItem("escape-hide-" + uid + code)) || {}); } catch {}
     net.move(me.x, me.y, me.d, me.jail);
     net.onTeam(t => { mates = t; drawTeam(); });
     net.onMeta(m => { meta = m; });
@@ -188,7 +188,7 @@ function tick() {
     : meta.state === "pause" ? "⏸ 잠깐 멈춤" : "🏁 게임 끝!";
   $("status").textContent = text; $("status").classList.toggle("on", !!text);
   jailTick();
-  try { localStorage.setItem("escape-hide-" + me.uid, JSON.stringify({ hideMs, hideBlockUntil })); } catch {}
+  try { localStorage.setItem("escape-hide-" + me.uid + me.code, JSON.stringify({ hideMs, hideBlockUntil })); } catch {}
 }
 
 // ── 보충수업실: 대기 시간이 끝나면 학습지 문제. 맞히면 시작점으로, 틀리면 10초 뒤 새 문제 ──
@@ -218,7 +218,10 @@ function escapeJail() {
   net.move(me.x, me.y, me.d, 0); jailTick();
 }
 
-function drawTeam() {
+let teamSig = "";
+function drawTeam() { // 팀원이 한 칸 움직일 때마다 불리므로, 이름·접속·보충실 상태가 바뀔 때만 다시 그림
+  const sig = JSON.stringify(Object.entries(mates).map(([id, m]) => [id, m.nick, m.avatar, m.online, !!m.jail]));
+  if (sig === teamSig) return; teamSig = sig;
   $("team").replaceChildren(...Object.entries(mates).map(([id, m]) => {
     const li = document.createElement("li");
     li.textContent = `${AVATARS[m.avatar] ?? "❔"} ${m.nick}${id === me.uid ? " (나)" : ""}${m.jail ? " 🔒" : ""}`;
@@ -334,7 +337,11 @@ function loop(now) {
     m.rx ??= m.x; m.ry ??= m.y;
     m.rx += (m.x - m.rx) * 0.25; m.ry += (m.y - m.ry) * 0.25;
   }
-  draw(); requestAnimationFrame(loop);
+  // 화면에 보이는 것이 바뀔 때만 다시 그림(가만히 있을 때 배터리·발열 절약)
+  const key = [me.rx, me.ry, monR?.x, monR?.y, T, VIEW_W, ...Object.values(mates).flatMap(m => [m.rx, m.ry, m.online, m.jail, m.nick])]
+    .map(v => typeof v === "number" ? v.toFixed(2) : v).join();
+  if (key !== drawKey) { drawKey = key; draw(); }
+  requestAnimationFrame(loop);
 }
 
 function draw() {
