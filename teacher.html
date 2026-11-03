@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>교사 관리 · 열나는 지구 연구소 탈출</title>
+<title>교사 관리 · 과학실의 그림자: 보충의 밤</title>
 <style>
   :root { --bg:#16131f; --panel:#221d30; --line:#3a3150; --text:#f3eefc; --dim:#a79cc0; --hot:#ff7a3d; --ok:#5ad19a; --bad:#ff6b6b; }
   * { box-sizing:border-box; }
@@ -113,7 +113,7 @@
 <script type="module">
 import * as net from "./net.js";
 import { MAP, FLOORS } from "./maps.js";
-import { monstersAt } from "./monsters.js";
+import { phaseAt } from "./monsters.js";
 const $ = id => document.getElementById(id);
 const AVATARS = ["🐱","🐶","🐰","🦊","🐼","🐸","🐧","🐻"];
 const STATE = { wait: "시작 전", play: "진행 중", pause: "일시정지", end: "종료" };
@@ -187,12 +187,13 @@ function miniMap(code, members) {
   cv.style.width = MAP[0].length * S + "px"; cv.style.height = MAP.length * S + "px";
   const g = cv.getContext("2d"); g.scale(dpr, dpr);
   MAP.forEach((row, y) => [...row].forEach((ch, x) => {
-    g.fillStyle = ch === "#" ? "#3a3150" : ch === "D" ? "#8a4b2a" : ch === "E" ? "#2f6b4f" : "#211c2e";
+    g.fillStyle = ch === "#" ? "#3a3150" : ch === "D" ? "#8a4b2a" : ch === "E" ? "#2f6b4f" : ch === "H" ? "#7a5a3a" : "#211c2e";
     g.fillRect(x * S, y * S, S, S);
   }));
   g.font = `${S * 1.6}px sans-serif`; g.textAlign = "center"; g.textBaseline = "middle";
   g.fillStyle = "#ff3b3b";
-  for (const mo of monstersAt(net.gameMs(data.meta), data.meta.seed ?? 1, MAP)) { g.beginPath(); g.arc(mo.x * S + S / 2, mo.y * S + S / 2, S * 0.45, 0, 7); g.fill(); }
+  const ph = phaseAt(net.gameMs(data.meta), data.meta.seed ?? 1), mo = data.monster[code];
+  if (ph.phase === "chase" && mo?.n === ph.n) { g.beginPath(); g.arc(mo.x * S + S / 2, mo.y * S + S / 2, S * 0.6, 0, 7); g.fill(); }
   for (const [kid, v] of members) {
     const q = data.pos[code]?.[kid];
     if (v.online && q && !q.jail) g.fillText(AVATARS[v.avatar] ?? "❔", q.x * S + S / 2, q.y * S + S / 2);

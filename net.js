@@ -65,6 +65,10 @@ export function onTeam(cb) {
   onValue(R(`${base}/pos`), s => { pos = s.val() || {}; emit(); }, () => {});
 }
 
+// 괴물 상태 { n: 몇 번째 등장, x, y } — 방장 기기가 올리고 팀원 모두 받는다
+export const setMonster = m => set(R(`sessions/${sid}/teams/${team}/monster`), m).catch(() => {});
+export const onMonster = cb => onValue(R(`sessions/${sid}/teams/${team}/monster`), s => cb(s.val()), () => {});
+
 // 게임 상태: { state: "wait"|"play"|"pause"|"end", endsAt, remain }
 export const onMeta = cb => onValue(R(`sessions/${sid}/meta`), s => cb(s.val() || { state: "end", remain: 0 }));
 
@@ -109,13 +113,13 @@ export async function createClass(name, teamCount, maxMembers, minutes, jailSec)
 
 // 반 상태와 팀별 접속자·진행 상황·위치를 지켜본다. 반환값을 부르면 그만 본다.
 export function watchClass(id, cb) {
-  const data = { meta: null, members: {}, kicked: {}, progress: {}, pos: {} }, offs = [];
+  const data = { meta: null, members: {}, kicked: {}, progress: {}, pos: {}, monster: {} }, offs = [];
   offs.push(onValue(R(`sessions/${id}/meta`), s => {
     data.meta = s.val(); cb(data);
     for (const code in data.meta?.teams || {}) if (!(code in data.members)) {
       data.members[code] = {};
       offs.push(onValue(R(`sessions/${id}/teams/${code}/members`), s2 => { data.members[code] = s2.val() || {}; cb(data); }));
-      for (const key of ["kicked", "progress", "pos"]) // pos는 작은 지도용(학생 이동마다 받음)
+      for (const key of ["kicked", "progress", "pos", "monster"]) // pos·monster는 작은 지도용
         offs.push(onValue(R(`sessions/${id}/teams/${code}/${key}`), s2 => { data[key][code] = s2.val() || {}; cb(data); }));
     }
   }));

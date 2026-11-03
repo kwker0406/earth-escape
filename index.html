@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>열나는 지구 연구소 탈출</title>
+<title>과학실의 그림자: 보충의 밤</title>
 <style>
   :root { --bg:#16131f; --panel:#221d30; --line:#3a3150; --text:#f3eefc; --dim:#a79cc0; --hot:#ff7a3d; --ok:#5ad19a; }
   /* 화면이 끌려가지 않게: 고정 + 스크롤·확대·당겨서 새로고침·글자 선택 차단 */
@@ -41,6 +41,9 @@
     padding:20px; background:#0d0b14cc; z-index:1; }
   #status.on { display:grid; }
   #timer.low { color:#ff8f8f; }
+  #alert { position:absolute; top:8px; left:50%; transform:translateX(-50%); z-index:2; display:none; max-width:92%;
+    padding:6px 14px; border-radius:10px; background:#a01c1ce8; color:#fff; font-size:15px; font-weight:700; text-align:center; pointer-events:none; }
+  #alert.on { display:block; }
   /* 괴물이 3칸 안에 있으면 지도 테두리가 붉게 깜빡임(방향키에 가려진 구석 대비) */
   #mapbox.danger::after { content:""; position:absolute; inset:0; pointer-events:none; z-index:1;
     box-shadow: inset 0 0 0 4px #ff3b3b, inset 0 0 36px #ff3b3b99; animation: blink .5s infinite alternate; }
@@ -78,7 +81,7 @@
 <body>
 
 <section id="join" class="screen on">
-  <h1>🌡️ 열나는 지구 연구소 탈출</h1>
+  <h1>🔦 과학실의 그림자: 보충의 밤</h1>
   <p>선생님이 알려 준 우리 팀 방 코드를 입력하세요.</p>
   <label for="code">방 코드</label>
   <input id="code" class="field" maxlength="6" autocomplete="off" autocapitalize="characters" placeholder="ABCD">
@@ -92,7 +95,7 @@
 
 <section id="game" class="screen">
   <div id="hud"><span>방 <b id="roomcode"></b> · ⏱ <b id="timer">--:--</b></span><button id="out">나가기</button></div>
-  <div id="mapbox"><canvas id="cv"></canvas><div id="status" role="status"></div></div>
+  <div id="mapbox"><canvas id="cv"></canvas><div id="alert" role="status" aria-live="polite"></div><div id="status" role="status"></div></div>
   <div id="panel">
     <div id="pad" aria-label="방향키"><span class="u">▲</span><span class="l">◀</span><span class="r">▶</span><span class="d">▼</span></div>
     <ul id="team"></ul>
@@ -107,12 +110,12 @@
 <script type="module">
 import * as net from "./net.js";
 import { MAP } from "./maps.js";
-import { monstersAt, caught } from "./monsters.js";
+import { phaseAt, spawnTile, stepToward, nextTarget, hostOf, STEP_MS as MON_STEP_MS, HIDE_WARN_MS, HIDE_MAX_MS, HIDE_COOLDOWN_MS, PLAYER_STEP_MS, CHASE_MS } from "./monsters.js";
 import { JAIL_QUESTIONS } from "./questions.js";
 
 const AVATARS = ["🐱","🐶","🐰","🦊","🐼","🐸","🐧","🐻"];
 let VIEW_W = 9, VIEW_H = 11; // 세로 9×11칸, 가로 13×7칸(보이는 칸 수를 비슷하게 맞춤)
-const STEP_MS = 140;
+const STEP_MS = PLAYER_STEP_MS; // 괴물 속도(10% 빠름)의 기준이라 monsters.js 값을 씀
 const DIRS = { u:[0,-1], d:[0,1], l:[-1,0], r:[1,0] };
 const start = (() => { for (let y in MAP) { const x = MAP[y].indexOf("S"); if (x >= 0) return { x, y:+y }; } })();
 const walkable = (x, y) => { const c = MAP[y]?.[x]; return c && c !== "#" && c !== "D"; };
@@ -124,7 +127,8 @@ const checkRotate = () => document.body.classList.toggle("land",
   (screen.orientation?.type ?? "").startsWith("landscape") || Math.abs(window.orientation ?? 0) === 90);
 addEventListener("resize", checkRotate); addEventListener("orientationchange", checkRotate); checkRotate();
 let avatar = 0, me = null, mates = {}, dir = null, lastStep = 0, meta = { state: "wait" };
-let mons = [], monR = [], grace = 0, quiz = null; // quiz: { i: 문제 번호, lock: 다시 풀 수 있는 시각 }
+let mon = null, monR = null, grace = 0, quiz = null; // mon: 서버의 괴물 {n,x,y}, quiz: { i: 문제 번호, lock: 다시 풀 수 있는 시각 }
+let hideMs = 0, lastT = 0, mStep = 0, mTarget = null, hideBlockUntil = 0, blockedMsgUntil = 0;
 
 // ── 입장 ──
 AVATARS.forEach((a, i) => {
@@ -152,9 +156,12 @@ $("go").onclick = async () => {
     try { localStorage.setItem("escape-profile", JSON.stringify({ code, nick, avatar })); } catch {}
     me = { uid, nick, avatar, ...(last && walkable(last.x, last.y) ? last : start), d: "d" };
     me.rx = me.x; me.ry = me.y; me.jail ||= 0;
+    // 새로고침으로 숨기 제한·재사용 대기를 초기화하지 못하게 기기에 저장해 둔 값을 되살림
+    try { ({ hideMs = 0, hideBlockUntil = 0 } = JSON.parse(localStorage.getItem("escape-hide-" + uid)) || {}); } catch {}
     net.move(me.x, me.y, me.d, me.jail);
     net.onTeam(t => { mates = t; drawTeam(); });
     net.onMeta(m => { meta = m; });
+    net.onMonster(m => { mon = m; });
     net.onKicked(() => {
       try { sessionStorage.setItem("escape-msg", "선생님이 내보냈거나 반이 종료됐어요.");
         localStorage.setItem("escape-profile", JSON.stringify({ nick, avatar })); } catch {}
@@ -181,6 +188,7 @@ function tick() {
     : meta.state === "pause" ? "⏸ 잠깐 멈춤" : "🏁 게임 끝!";
   $("status").textContent = text; $("status").classList.toggle("on", !!text);
   jailTick();
+  try { localStorage.setItem("escape-hide-" + me.uid, JSON.stringify({ hideMs, hideBlockUntil })); } catch {}
 }
 
 // ── 보충수업실: 대기 시간이 끝나면 학습지 문제. 맞히면 시작점으로, 틀리면 10초 뒤 새 문제 ──
@@ -196,8 +204,10 @@ function jailTick() {
   const Q = JAIL_QUESTIONS[i];
   $("jailMsg").textContent = "문제를 맞히면 시작점으로 탈출!";
   const p = document.createElement("p"); p.textContent = Q.q;
-  $("jailQ").replaceChildren(p, ...Q.c.map((c, k) => {
-    const b = document.createElement("button"); b.textContent = c;
+  const order = Q.c.map((_, k) => k); // 보기 순서를 매번 섞음(정답 위치를 외우지 못하게)
+  for (let k = order.length - 1; k > 0; k--) { const r = Math.floor(Math.random() * (k + 1)); [order[k], order[r]] = [order[r], order[k]]; }
+  $("jailQ").replaceChildren(p, ...order.map(k => {
+    const b = document.createElement("button"); b.textContent = Q.c[k];
     b.onclick = () => k === Q.a ? escapeJail() : (quiz.lock = net.serverNow() + 10000, $("jailQ").replaceChildren(), jailTick());
     return b;
   }));
@@ -258,23 +268,67 @@ function resize() {
 // window resize는 회전 직후 크기가 덜 바뀐 상태에서 오기도 해서, 지도 칸의 실제 크기 변화를 지켜본다
 new ResizeObserver(() => { if (me) resize(); }).observe($("mapbox"));
 
+// 사물함은 한 칸에 한 명만
+const lockerTaken = (x, y) => MAP[y][x] === "H" && Object.entries(mates).some(([id, m]) => id !== me.uid && m.online && !m.jail && m.x === x && m.y === y);
+
+function caughtNow() {
+  me.jail = net.serverNow() + (meta.jailSec ?? 60) * 1000; hideMs = 0; setDir(null);
+  net.move(me.x, me.y, me.d, me.jail); jailTick();
+}
+
+// 방장 기기만: 추격 20초 동안 괴물을 학생보다 10% 빠르게 한 칸씩 움직여 서버에 올린다
+function runMonster(now, ph) {
+  if (!playing() || ph.phase !== "chase" || now - mStep < MON_STEP_MS) return;
+  const t = net.serverNow(), cur = mon?.n === ph.n ? mon : null;
+  if (hostOf(mates, cur, t, t - (CHASE_MS - ph.left)) !== me.uid) return;
+  mStep = now;
+  const players = Object.entries(mates).filter(([, m]) => m.online && m.x != null)
+    .map(([id, m]) => id === me.uid ? { id, x: me.x, y: me.y, jail: me.jail } : { id, x: m.x, y: m.y, jail: m.jail });
+  if (mon?.n !== ph.n) { // 이번 등장의 첫 순간: 학생들에게서 5칸 이상 떨어진 곳에 나타남
+    mon = { n: ph.n, ...spawnTile(MAP, players.filter(p => !p.jail), meta.seed ?? 1, ph.n), by: me.uid, t };
+    mTarget = null; return net.setMonster(mon);
+  }
+  mTarget = nextTarget(MAP, mon, players, mTarget, now);
+  mon = { n: ph.n, ...stepToward(MAP, mon, mTarget), by: me.uid, t }; // 제자리여도 올려서 '살아 있음'을 알림
+  net.setMonster(mon);
+}
+
 function loop(now) {
-  mons = monstersAt(net.gameMs(meta), meta.seed ?? 1, MAP);
+  const ph = phaseAt(net.gameMs(meta), meta.seed ?? 1);
+  const active = ph.phase === "chase" && mon?.n === ph.n ? mon : null; // 이번 등장의 괴물만 보임
   if (dir && playing() && !me.jail && now - lastStep >= STEP_MS) {
     lastStep = now; me.d = dir;
-    const [dx, dy] = DIRS[dir];
-    if (walkable(me.x + dx, me.y + dy)) { me.x += dx; me.y += dy; net.move(me.x, me.y, me.d); }
+    const [dx, dy] = DIRS[dir], nx = me.x + dx, ny = me.y + dy;
+    const wasHidden = MAP[me.y][me.x] === "H", intoLocker = MAP[ny]?.[nx] === "H";
+    if (intoLocker && net.serverNow() < hideBlockUntil) blockedMsgUntil = net.serverNow() + 1500; // 나온 지 15초가 안 됨
+    else if (walkable(nx, ny) && !lockerTaken(nx, ny)) {
+      me.x = nx; me.y = ny; net.move(me.x, me.y, me.d);
+      if (wasHidden && !intoLocker) hideBlockUntil = net.serverNow() + HIDE_COOLDOWN_MS;
+    }
   }
-  if (playing() && !me.jail && net.serverNow() > grace && caught(mons, me.x, me.y)) {
-    me.jail = net.serverNow() + (meta.jailSec ?? 60) * 1000; setDir(null);
-    net.move(me.x, me.y, me.d, me.jail); jailTick();
+  runMonster(now, ph);
+  // 숨기 제한: 사물함 안에서는 시간이 쌓이고, 밖에서는 1초에 1초씩 줄어듦. 60초면 들킴
+  const dt = lastT ? Math.min(now - lastT, 250) : 0; lastT = now;
+  const hidden = MAP[me.y][me.x] === "H";
+  if (playing() && !me.jail) {
+    hideMs = Math.max(0, hideMs + (hidden ? dt : -dt));
+    if (hidden && hideMs >= HIDE_MAX_MS) caughtNow();
+    else if (!hidden && net.serverNow() > grace && active?.x === me.x && active?.y === me.y) caughtNow();
   }
-  $("mapbox").classList.toggle("danger", playing() && !me.jail && mons.some(m => Math.abs(m.x - me.x) + Math.abs(m.y - me.y) <= 3));
+  const near = active && Math.abs(active.x - me.x) + Math.abs(active.y - me.y) <= 3;
+  $("mapbox").classList.toggle("danger", playing() && !me.jail && !!near);
+  const alert = !playing() || me.jail ? ""
+    : hidden && hideMs >= HIDE_WARN_MS ? `…발소리가 가까워진다. ${Math.ceil((HIDE_MAX_MS - hideMs) / 1000)}초 뒤 들킬 것 같아!`
+    : net.serverNow() < blockedMsgUntil ? `🗄️ ${Math.ceil((hideBlockUntil - net.serverNow()) / 1000)}초 뒤에 다시 숨을 수 있어요`
+    : ph.phase === "warn" ? "…누가 복도에 있니? (보충쌤이 곧 나타나요!)"
+    : active ? `👨‍🔬 보충쌤 등장! ${Math.ceil(ph.left / 1000)}초 버티기${hidden ? " · 🫣 숨는 중" : ""}`
+    : hidden ? `🫣 사물함에 숨는 중 (${Math.floor(hideMs / 1000)}초 / 60초)` : "";
+  if ($("alert").textContent !== alert) $("alert").textContent = alert;
+  $("alert").classList.toggle("on", !!alert);
   me.rx += (me.x - me.rx) * 0.35; me.ry += (me.y - me.ry) * 0.35;
-  monR = mons.map((m, i) => { // 부드럽게 움직이되, 새로 나타나면 바로 그 자리로
-    const r = monR[i]; if (!r || Math.abs(r.x - m.x) + Math.abs(r.y - m.y) > 1.5) return { ...m };
-    return { ...m, x: r.x + (m.x - r.x) * 0.2, y: r.y + (m.y - r.y) * 0.2 };
-  });
+  // 괴물은 부드럽게 움직이되, 새로 나타나면 바로 그 자리로
+  monR = !active ? null : !monR || Math.abs(monR.x - active.x) + Math.abs(monR.y - active.y) > 1.5 ? { ...active }
+    : { x: monR.x + (active.x - monR.x) * 0.35, y: monR.y + (active.y - monR.y) * 0.35 };
   for (const id in mates) {
     const m = mates[id]; if (id === me.uid || m.x == null) continue;
     m.rx ??= m.x; m.ry ??= m.y;
@@ -291,17 +345,16 @@ function draw() {
   for (let y = Math.floor(cy); y < Math.min(H, cy + VIEW_H + 1); y++)
     for (let x = Math.floor(cx); x < Math.min(W, cx + VIEW_W + 1); x++) {
       const c = MAP[y][x], px = (x - cx) * T, py = (y - cy) * T;
-      ctx.fillStyle = c === "#" ? "#3a3150" : c === "D" ? "#8a4b2a" : c === "E" ? "#2f6b4f" : (x + y) % 2 ? "#2a2438" : "#2e283d";
+      ctx.fillStyle = c === "#" ? "#3a3150" : c === "D" ? "#8a4b2a" : c === "E" ? "#2f6b4f" : c === "H" ? "#4a3b2c" : (x + y) % 2 ? "#2a2438" : "#2e283d";
       ctx.fillRect(px, py, T + 0.5, T + 0.5);
-      if (c === "D" || c === "E") { ctx.font = `${T * 0.6}px sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-        ctx.fillText(c === "D" ? "🔒" : "🚪", px + T / 2, py + T / 2); }
+      if ("DEH".includes(c)) { ctx.font = `${T * 0.6}px sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText(c === "D" ? "🔒" : c === "E" ? "🚪" : "🗄️", px + T / 2, py + T / 2); }
     }
-  for (const m of monR) {
-    const px = (m.x - cx) * T + T / 2, py = (m.y - cy) * T + T / 2;
-    ctx.globalAlpha = m.fresh ? 0.45 : 1; // 막 나타난 괴물은 흐리게
-    ctx.beginPath(); ctx.arc(px, py, T * 0.48, 0, Math.PI * 2); ctx.fillStyle = "#c0262680"; ctx.fill();
+  if (monR) {
+    const px = (monR.x - cx) * T + T / 2, py = (monR.y - cy) * T + T / 2;
+    ctx.beginPath(); ctx.arc(px, py, T * 0.48, 0, Math.PI * 2); ctx.fillStyle = "#c0262690"; ctx.fill();
     ctx.font = `${T * 0.72}px sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = "#fff";
-    ctx.fillText("👨‍🔬", px, py + 1); ctx.globalAlpha = 1;
+    ctx.fillText("👨‍🔬", px, py + 1);
   }
   const others = Object.entries(mates).filter(([id, m]) => id !== me.uid && m.online && !m.jail && m.rx != null);
   for (const [, m] of others) drawChar(m.rx, m.ry, m.avatar, m.nick, cx, cy, false);
