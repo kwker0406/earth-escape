@@ -49,13 +49,15 @@
   #team li { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   #team li.off { opacity:.4; }
 
-  /* 세로 고정: 터치 기기를 가로로 돌리면 안내 */
-  #rotate { display:none; position:fixed; inset:0; z-index:9; background:var(--bg); place-items:center; text-align:center; font-size:20px; }
-  body.land #rotate { display:grid; }
+  /* 가로 화면: 조작판을 지도 아래가 아니라 지도 양옆(왼쪽 아래 방향키, 오른쪽 팀원)에 겹쳐 둔다 */
+  body.land #panel { position:absolute; left:0; right:0; bottom:0; height:auto; background:none; border:0; pointer-events:none;
+    padding: 0 max(16px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); align-items:flex-end; }
+  body.land #pad { pointer-events:auto; width:140px; height:140px; }
+  body.land #pad .u { left:44px; } body.land #pad .d { left:44px; } body.land #pad .l, body.land #pad .r { top:44px; }
+  body.land #team { max-width:22%; }
 </style>
 </head>
 <body>
-<div id="rotate"><div>📱↻<br>휴대폰을 <b>세로</b>로 돌려 주세요</div></div>
 
 <section id="join" class="screen on">
   <h1>🌡️ 열나는 지구 연구소 탈출</h1>
@@ -110,8 +112,8 @@ const walkable = (x, y) => { const c = MAP[y]?.[x]; return c && c !== "#" && c !
 const $ = id => document.getElementById(id);
 
 // 키보드가 올라오면 화면 높이가 줄어 '가로'로 오인되므로, 화면 비율 대신 기기 방향으로 판정
-const checkRotate = () => document.body.classList.toggle("land", matchMedia("(pointer: coarse)").matches &&
-  ((screen.orientation?.type ?? "").startsWith("landscape") || Math.abs(window.orientation ?? 0) === 90));
+const checkRotate = () => document.body.classList.toggle("land",
+  (screen.orientation?.type ?? "").startsWith("landscape") || Math.abs(window.orientation ?? 0) === 90);
 addEventListener("resize", checkRotate); addEventListener("orientationchange", checkRotate); checkRotate();
 let avatar = 0, me = null, mates = {}, dir = null, lastStep = 0;
 
@@ -187,13 +189,15 @@ const cv = $("cv"), ctx = cv.getContext("2d");
 let T = 32;
 function resize() {
   const box = $("mapbox").getBoundingClientRect();
+  if (box.width < 50 || box.height < 50) return; // 회전 도중의 임시 크기는 무시(0이 되면 지도가 사라짐)
   T = Math.floor(Math.min((box.width - 16) / VIEW_W, (box.height - 8) / VIEW_H));
   const dpr = devicePixelRatio || 1;
   cv.style.width = T * VIEW_W + "px"; cv.style.height = T * VIEW_H + "px";
   cv.width = T * VIEW_W * dpr; cv.height = T * VIEW_H * dpr;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
-addEventListener("resize", resize);
+// window resize는 회전 직후 크기가 덜 바뀐 상태에서 오기도 해서, 지도 칸의 실제 크기 변화를 지켜본다
+new ResizeObserver(() => { if (me) resize(); }).observe($("mapbox"));
 
 function loop(now) {
   if (dir && now - lastStep >= STEP_MS) {
