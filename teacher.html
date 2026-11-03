@@ -40,6 +40,15 @@
   .team h3 { margin:0; display:flex; justify-content:space-between; align-items:baseline; font-size:16px; }
   .team h3 small { color:var(--dim); font-weight:400; }
   .code { font-size:38px; font-weight:800; letter-spacing:6px; color:var(--hot); }
+  #ranking { display:flex; flex-wrap:wrap; gap:8px; margin:-6px 0 14px; font-size:14px; }
+  #ranking span { background:var(--panel); border-radius:99px; padding:4px 12px; }
+  #ranking span:first-child { background:var(--hot); color:#fff; font-weight:700; }
+  .row { display:flex; gap:10px; align-items:center; }
+  .row canvas { flex:none; border-radius:6px; background:#0d0b14; }
+  .prog { flex:1; font-size:13px; color:var(--dim); display:grid; gap:6px; }
+  .prog b { color:var(--text); font-size:15px; }
+  .bar { height:8px; border-radius:99px; background:var(--line); overflow:hidden; }
+  .bar i { display:block; height:100%; background:var(--ok); }
   .team ul { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; }
   .team li { display:flex; align-items:center; gap:8px; }
   .team li .dot { width:8px; height:8px; border-radius:50%; background:var(--ok); flex:none; }
@@ -47,6 +56,8 @@
   .team li span.n { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .team li button { padding:2px 8px; font-size:12px; }
   #err { color:var(--bad); }
+  .team .kicked { border-top:1px dashed var(--line); padding-top:8px; font-size:13px; color:var(--dim); }
+  .team .kicked li { opacity:.8; }
 </style>
 </head>
 <body>
@@ -92,6 +103,7 @@
           <button class="bad" id="del">반 삭제(초기화)</button>
         </div>
       </div>
+      <div id="ranking"></div>
       <div id="teams"></div>
     </div>
   </div>
@@ -99,12 +111,13 @@
 
 <script type="module">
 import * as net from "./net.js";
+import { MAP, FLOORS } from "./maps.js";
 const $ = id => document.getElementById(id);
 const AVATARS = ["🐱","🐶","🐰","🦊","🐼","🐸","🐧","🐻"];
 const STATE = { wait: "시작 전", play: "진행 중", pause: "일시정지", end: "종료" };
 $("url").textContent = new URL("./", location.href).href;
 
-let current = null, stopWatch = null, data = null;
+let current = null, stopWatch = null, data = null, pending = null;
 
 $("loginBtn").onclick = async () => {
   $("err").textContent = "";
@@ -134,7 +147,7 @@ function open(id) {
   stopWatch?.(); current = id;
   [...$("classes").children].forEach(b => b.classList.toggle("sel", b.dataset.id === id));
   $("empty").hidden = true; $("view").hidden = false;
-  stopWatch = net.watchClass(id, d => { data = d; render(); });
+  stopWatch = net.watchClass(id, d => { data = d; pending ??= setTimeout(() => { pending = null; render(); }, 250); }); // 이동이 잦아 0.25초마다 한 번만 다시 그림
 }
 function close() { stopWatch?.(); stopWatch = null; current = null; data = null; $("view").hidden = true; $("empty").hidden = false; }
 
@@ -164,17 +177,43 @@ function clock() {
 }
 setInterval(clock, 500);
 
+// 팀별 작은 지도: 벽과 접속 중인 팀원 위치
+function miniMap(code, members) {
+  const S = 7, cv = document.createElement("canvas"), dpr = devicePixelRatio || 1;
+  cv.width = MAP[0].length * S * dpr; cv.height = MAP.length * S * dpr;
+  cv.style.width = MAP[0].length * S + "px"; cv.style.height = MAP.length * S + "px";
+  const g = cv.getContext("2d"); g.scale(dpr, dpr);
+  MAP.forEach((row, y) => [...row].forEach((ch, x) => {
+    g.fillStyle = ch === "#" ? "#3a3150" : ch === "D" ? "#8a4b2a" : ch === "E" ? "#2f6b4f" : "#211c2e";
+    g.fillRect(x * S, y * S, S, S);
+  }));
+  g.font = `${S * 1.6}px sans-serif`; g.textAlign = "center"; g.textBaseline = "middle";
+  for (const [kid, v] of members) {
+    const q = data.pos[code]?.[kid];
+    if (v.online && q) g.fillText(AVATARS[v.avatar] ?? "❔", q.x * S + S / 2, q.y * S + S / 2);
+  }
+  cv.setAttribute("aria-label", `${data.meta.teams[code]}팀 위치 지도`);
+  return cv;
+}
+
 function render() {
-  const m = data.meta; if (!m) return;
+  const m = data?.meta; if (!m) return;
   $("cname").textContent = m.name;
   $("controls").querySelector('[data-act="start"]').disabled = m.state === "play";
   $("controls").querySelector('[data-act="pause"]').disabled = m.state !== "play";
   const codes = Object.keys(m.teams).sort((a, b) => m.teams[a] - m.teams[b]);
+  const pr = code => ({ floor: 1, solved: 0, wrong: 0, score: 0, ...data.progress[code] });
+  // 순위: 점수 → 층 → 푼 문제 순
+  const ranked = [...codes].sort((a, b) => pr(b).score - pr(a).score || pr(b).floor - pr(a).floor || pr(b).solved - pr(a).solved);
+  const rank = Object.fromEntries(ranked.map((c, i) => [c, i + 1]));
+  $("ranking").replaceChildren(...ranked.map(c => {
+    const s = document.createElement("span"); s.textContent = `${rank[c]}위 ${m.teams[c]}팀 · ${pr(c).score}점`; return s;
+  }));
   $("teams").replaceChildren(...codes.map(code => {
     const members = Object.entries(data.members[code] || {}).filter(([, v]) => v.nick);
     const card = document.createElement("div"); card.className = "team";
     const h = document.createElement("h3");
-    h.append(`${m.teams[code]}팀`); const sm = document.createElement("small");
+    h.append(`${rank[code]}위 · ${m.teams[code]}팀`); const sm = document.createElement("small");
     sm.textContent = `${members.filter(([, v]) => v.online).length}명 접속 / 최대 ${m.maxMembers}명`; h.append(sm);
     const c = document.createElement("div"); c.className = "code"; c.textContent = code;
     const ul = document.createElement("ul");
@@ -186,7 +225,29 @@ function render() {
       k.onclick = () => confirm(`${v.nick} 학생을 내보낼까요?\n이 기기로는 이 팀에 다시 들어올 수 없어요.`) && net.kick(current, code, kid);
       li.append(dot, n, k); ul.append(li);
     }
-    card.append(h, c, ul); return card;
+    const p = pr(code), row = document.createElement("div"); row.className = "row";
+    const prog = document.createElement("div"); prog.className = "prog";
+    const fl = document.createElement("b"); fl.textContent = `${p.floor}층 / ${FLOORS}층`;
+    const bar = document.createElement("div"); bar.className = "bar";
+    const fill = document.createElement("i"); fill.style.width = `${Math.min(100, (p.floor - 1) / FLOORS * 100)}%`; bar.append(fill);
+    const st = document.createElement("span"); st.textContent = `점수 ${p.score} · 해결 ${p.solved} · 오답 ${p.wrong}`;
+    prog.append(fl, bar, st);
+    row.append(miniMap(code, members), prog);
+    card.append(h, c, row, ul);
+    const out = Object.entries(data.kicked[code] || {});
+    if (out.length) {
+      const box = document.createElement("div"); box.className = "kicked"; box.append("내보낸 학생");
+      const ul2 = document.createElement("ul");
+      for (const [kid, nick] of out) {
+        const li = document.createElement("li");
+        const n = document.createElement("span"); n.className = "n"; n.textContent = typeof nick === "string" ? nick : "이름 없음";
+        const r = document.createElement("button"); r.textContent = "다시 받기";
+        r.onclick = () => net.unkick(current, code, kid);
+        li.append(n, r); ul2.append(li);
+      }
+      box.append(ul2); card.append(box);
+    }
+    return card;
   }));
   clock();
 }

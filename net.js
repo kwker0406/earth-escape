@@ -102,14 +102,16 @@ export async function createClass(name, teamCount, maxMembers, minutes) {
   return id;
 }
 
-// 반 상태와 팀별 접속자를 지켜본다. 위치(pos)는 받지 않아 데이터를 아낀다. 반환값을 부르면 그만 본다.
+// 반 상태와 팀별 접속자·진행 상황·위치를 지켜본다. 반환값을 부르면 그만 본다.
 export function watchClass(id, cb) {
-  const data = { meta: null, members: {} }, offs = [];
+  const data = { meta: null, members: {}, kicked: {}, progress: {}, pos: {} }, offs = [];
   offs.push(onValue(R(`sessions/${id}/meta`), s => {
     data.meta = s.val(); cb(data);
     for (const code in data.meta?.teams || {}) if (!(code in data.members)) {
       data.members[code] = {};
       offs.push(onValue(R(`sessions/${id}/teams/${code}/members`), s2 => { data.members[code] = s2.val() || {}; cb(data); }));
+      for (const key of ["kicked", "progress", "pos"]) // pos는 작은 지도용(학생 이동마다 받음)
+        offs.push(onValue(R(`sessions/${id}/teams/${code}/${key}`), s2 => { data[key][code] = s2.val() || {}; cb(data); }));
     }
   }));
   return () => offs.forEach(off => off());
@@ -126,15 +128,19 @@ export async function control(id, action) {
   await update(R(`sessions/${id}/meta`), change);
 }
 
-// 내보내기: 자리를 비우고, 같은 기기로는 다시 못 들어오게 표시
+// 내보내기: 자리를 비우고, 같은 기기로는 다시 못 들어오게 표시(다시 받아 줄 때 알아보도록 닉네임을 남김)
 export async function kick(id, code, kid) {
   const slot = (await get(R(`sessions/${id}/players/${kid}/slot`))).val();
   const t = `sessions/${id}/teams/${code}`;
+  const nick = (await get(R(`${t}/members/${kid}/nick`))).val() || "이름 없음";
   await update(R("/"), {
     [`sessions/${id}/players/${kid}`]: null, [`${t}/members/${kid}`]: null, [`${t}/pos/${kid}`]: null,
-    [`${t}/kicked/${kid}`]: true, ...(slot ? { [`${t}/slots/${slot}`]: false } : {}),
+    [`${t}/kicked/${kid}`]: nick, ...(slot ? { [`${t}/slots/${slot}`]: false } : {}),
   });
 }
+
+// 다시 받아 주기: 표시만 지운다. 학생이 다시 입장하면 빈자리를 차지한다.
+export const unkick = (id, code, kid) => update(R(`sessions/${id}/teams/${code}/kicked`), { [kid]: null });
 
 // 반 전체 삭제(초기화): 기록·코드 모두 지운다
 export async function deleteClass(id) {
