@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>열나는 지구 연구소 탈출</title>
+<style>
+  :root { --bg:#16131f; --panel:#221d30; --line:#3a3150; --text:#f3eefc; --dim:#a79cc0; --hot:#ff7a3d; --ok:#5ad19a; }
+  /* 화면이 끌려가지 않게: 고정 + 스크롤·확대·당겨서 새로고침·글자 선택 차단 */
+  html, body { margin:0; height:100%; overflow:hidden; overscroll-behavior:none; background:var(--bg); color:var(--text);
+    font-family: -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; }
+  body { position:fixed; inset:0; touch-action:none; user-select:none; -webkit-user-select:none;
+    -webkit-touch-callout:none; -webkit-tap-highlight-color:transparent; }
+  input, button { touch-action:manipulation; font:inherit; }
+  input { user-select:text; -webkit-user-select:text; }
+  .screen { position:absolute; inset:0; display:none; flex-direction:column; }
+  .screen.on { display:flex; }
+
+  /* 입장 화면 */
+  #join { padding: max(24px, env(safe-area-inset-top)) 20px 24px; gap:14px; overflow-y:auto; touch-action:pan-y; }
+  #join h1 { margin:8px 0 0; font-size:24px; } #join p { margin:0; color:var(--dim); font-size:14px; }
+  label { font-size:14px; color:var(--dim); }
+  .field { width:100%; box-sizing:border-box; padding:14px; font-size:18px; border-radius:12px; border:2px solid var(--line);
+    background:var(--panel); color:var(--text); }
+  #code { text-transform:uppercase; letter-spacing:6px; text-align:center; font-weight:700; }
+  #avatars { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+  #avatars button { aspect-ratio:1; font-size:34px; border-radius:14px; border:3px solid var(--line); background:var(--panel); }
+  #avatars button.sel { border-color:var(--hot); background:#3a2a2a; }
+  .big { padding:16px; font-size:18px; font-weight:700; border:0; border-radius:14px; background:var(--hot); color:#fff; }
+  #msg { min-height:20px; color:#ff8f8f; font-size:14px; }
+
+  /* 게임 화면: 위쪽 지도, 아래쪽 조작판 */
+  #game { height:100dvh; }
+  #hud { display:flex; justify-content:space-between; align-items:center; padding: max(8px, env(safe-area-inset-top)) 14px 8px;
+    font-size:14px; color:var(--dim); }
+  #hud b { color:var(--text); letter-spacing:2px; }
+  #hud button { background:none; border:1px solid var(--line); color:var(--dim); border-radius:8px; padding:4px 8px; }
+  #mapbox { flex:1; min-height:0; display:flex; align-items:center; justify-content:center; }
+  canvas { display:block; border-radius:12px; }
+  #panel { flex:none; height:200px; padding: 10px 16px max(14px, env(safe-area-inset-bottom)); display:flex;
+    align-items:center; justify-content:space-between; background:var(--panel); border-top:1px solid var(--line); }
+  #pad { position:relative; width:160px; height:160px; border-radius:50%; background:#2e2740; border:2px solid var(--line); flex:none; }
+  #pad span { position:absolute; width:52px; height:52px; display:grid; place-items:center; font-size:22px; color:var(--dim);
+    border-radius:12px; background:#3a3150; }
+  #pad .u { left:54px; top:4px; } #pad .d { left:54px; bottom:4px; } #pad .l { left:4px; top:54px; } #pad .r { right:4px; top:54px; }
+  #pad span.on { background:var(--hot); color:#fff; }
+  #team { list-style:none; margin:0; padding:0; font-size:14px; display:flex; flex-direction:column; gap:6px; max-width:45%; }
+  #team li { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #team li.off { opacity:.4; }
+
+  /* 세로 고정: 터치 기기를 가로로 돌리면 안내 */
+  #rotate { display:none; position:fixed; inset:0; z-index:9; background:var(--bg); place-items:center; text-align:center; font-size:20px; }
+  @media (orientation: landscape) and (pointer: coarse) { #rotate { display:grid; } }
+</style>
+</head>
+<body>
+<div id="rotate"><div>📱↻<br>휴대폰을 <b>세로</b>로 돌려 주세요</div></div>
+
+<section id="join" class="screen on">
+  <h1>🌡️ 열나는 지구 연구소 탈출</h1>
+  <p>선생님이 알려 준 우리 팀 방 코드를 입력하세요.</p>
+  <label for="code">방 코드</label>
+  <input id="code" class="field" maxlength="6" autocomplete="off" autocapitalize="characters" placeholder="ABCD">
+  <label for="nick">닉네임 (8자 이내)</label>
+  <input id="nick" class="field" maxlength="8" autocomplete="off" placeholder="닉네임">
+  <label>캐릭터 고르기</label>
+  <div id="avatars"></div>
+  <div id="msg" role="alert"></div>
+  <button id="go" class="big">입장하기</button>
+</section>
+
+<section id="game" class="screen">
+  <div id="hud"><span>방 <b id="roomcode"></b></span><button id="out">나가기</button></div>
+  <div id="mapbox"><canvas id="cv"></canvas></div>
+  <div id="panel">
+    <div id="pad" aria-label="방향키"><span class="u">▲</span><span class="l">◀</span><span class="r">▶</span><span class="d">▼</span></div>
+    <ul id="team"></ul>
+  </div>
+</section>
+
+<script type="module">
+import * as net from "./net.js";
+
+const AVATARS = ["🐱","🐶","🐰","🦊","🐼","🐸","🐧","🐻"];
+// 1층 지도. # 벽, . 바닥, S 시작점, D 잠긴 문(2단계에서 퍼즐로 열림), E 출구
+const MAP = [
+  "#############",
+  "#S....#.....#",
+  "#.....#.....#",
+  "#.....D.....#",
+  "#.....#.....#",
+  "###.#####.###",
+  "#...........#",
+  "#..##...##..#",
+  "#...........#",
+  "#..##...##..#",
+  "#...........#",
+  "#####.#######",
+  "#...........#",
+  "#.#########.#",
+  "#...........#",
+  "###########E#",
+];
+const VIEW_W = 9, VIEW_H = 11, STEP_MS = 140;
+const DIRS = { u:[0,-1], d:[0,1], l:[-1,0], r:[1,0] };
+const start = (() => { for (let y in MAP) { const x = MAP[y].indexOf("S"); if (x >= 0) return { x, y:+y }; } })();
+const walkable = (x, y) => { const c = MAP[y]?.[x]; return c && c !== "#" && c !== "D"; };
+
+const $ = id => document.getElementById(id);
+let avatar = 0, me = null, mates = {}, dir = null, lastStep = 0;
+
+// ── 입장 ──
+AVATARS.forEach((a, i) => {
+  const b = document.createElement("button");
+  b.textContent = a; b.setAttribute("aria-label", "캐릭터 " + (i + 1));
+  b.onclick = () => { avatar = i; [...$("avatars").children].forEach((c, j) => c.classList.toggle("sel", j === i)); };
+  $("avatars").append(b);
+});
+$("avatars").children[0].classList.add("sel");
+
+let saved = null;
+try { saved = JSON.parse(localStorage.getItem("escape-profile")); } catch {}
+if (saved) { $("code").value = saved.code; $("nick").value = saved.nick; $("avatars").children[saved.avatar]?.click(); }
+
+$("go").onclick = async () => {
+  const code = $("code").value.trim().toUpperCase(), nick = $("nick").value.trim();
+  if (!/^[A-Z0-9]{4,6}$/.test(code)) return $("msg").textContent = "방 코드는 영어·숫자 4~6자예요.";
+  if (!nick) return $("msg").textContent = "닉네임을 입력하세요.";
+  $("go").disabled = true; $("msg").textContent = "접속 중…";
+  try {
+    const { uid, last } = await net.join(code, nick, avatar);
+    try { localStorage.setItem("escape-profile", JSON.stringify({ code, nick, avatar })); } catch {}
+    me = { uid, nick, avatar, ...(last && walkable(last.x, last.y) ? last : start), d: "d" };
+    me.rx = me.x; me.ry = me.y;
+    net.move(me.x, me.y, me.d);
+    net.onTeam(t => { mates = t; drawTeam(); });
+    $("roomcode").textContent = code;
+    $("join").classList.remove("on"); $("game").classList.add("on");
+    resize(); requestAnimationFrame(loop);
+  } catch (e) {
+    $("msg").textContent = "접속에 실패했어요. 인터넷 연결을 확인하세요."; console.error(e);
+  } finally { $("go").disabled = false; }
+};
+$("out").onclick = async () => { await net.leave(); location.reload(); };
+
+function drawTeam() {
+  $("team").replaceChildren(...Object.entries(mates).map(([id, m]) => {
+    const li = document.createElement("li");
+    li.textContent = `${AVATARS[m.avatar] ?? "❔"} ${m.nick}${id === me.uid ? " (나)" : ""}`;
+    if (!m.online) li.classList.add("off");
+    return li;
+  }));
+}
+
+// ── 방향키: 원판 하나에서 손가락 각도로 방향 판정 → 버튼 사이로 미끄러져도 끊기지 않음 ──
+const pad = $("pad");
+function padDir(e) {
+  const r = pad.getBoundingClientRect();
+  const dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+  if (Math.hypot(dx, dy) < 14) return null; // 가운데는 정지
+  return Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "r" : "l") : (dy > 0 ? "d" : "u");
+}
+function setDir(d) {
+  dir = d;
+  for (const s of pad.children) s.classList.toggle("on", s.classList.contains(d));
+}
+pad.addEventListener("pointerdown", e => { e.preventDefault(); pad.setPointerCapture(e.pointerId); setDir(padDir(e)); });
+pad.addEventListener("pointermove", e => { if (pad.hasPointerCapture(e.pointerId)) setDir(padDir(e)); });
+for (const t of ["pointerup", "pointercancel", "lostpointercapture"]) pad.addEventListener(t, () => setDir(null));
+// iOS: 두 손가락 확대·길게 누르기 메뉴 차단
+document.addEventListener("gesturestart", e => e.preventDefault());
+document.addEventListener("touchmove", e => { if (!e.target.closest("#join")) e.preventDefault(); }, { passive:false });
+document.addEventListener("contextmenu", e => e.preventDefault());
+// PC 테스트용 키보드
+const KEYS = { ArrowUp:"u", ArrowDown:"d", ArrowLeft:"l", ArrowRight:"r" };
+addEventListener("keydown", e => { if (KEYS[e.key] && me) { e.preventDefault(); setDir(KEYS[e.key]); } });
+addEventListener("keyup", e => { if (KEYS[e.key] === dir) setDir(null); });
+
+// ── 화면 그리기 ──
+const cv = $("cv"), ctx = cv.getContext("2d");
+let T = 32;
+function resize() {
+  const box = $("mapbox").getBoundingClientRect();
+  T = Math.floor(Math.min((box.width - 16) / VIEW_W, (box.height - 8) / VIEW_H));
+  const dpr = devicePixelRatio || 1;
+  cv.style.width = T * VIEW_W + "px"; cv.style.height = T * VIEW_H + "px";
+  cv.width = T * VIEW_W * dpr; cv.height = T * VIEW_H * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+addEventListener("resize", resize);
+
+function loop(now) {
+  if (dir && now - lastStep >= STEP_MS) {
+    lastStep = now; me.d = dir;
+    const [dx, dy] = DIRS[dir];
+    if (walkable(me.x + dx, me.y + dy)) { me.x += dx; me.y += dy; net.move(me.x, me.y, me.d); }
+  }
+  me.rx += (me.x - me.rx) * 0.35; me.ry += (me.y - me.ry) * 0.35;
+  for (const id in mates) {
+    const m = mates[id]; if (id === me.uid || m.x == null) continue;
+    m.rx ??= m.x; m.ry ??= m.y;
+    m.rx += (m.x - m.rx) * 0.25; m.ry += (m.y - m.ry) * 0.25;
+  }
+  draw(); requestAnimationFrame(loop);
+}
+
+function draw() {
+  const W = MAP[0].length, H = MAP.length;
+  const cx = Math.max(0, Math.min(W - VIEW_W, me.rx - (VIEW_W - 1) / 2));
+  const cy = Math.max(0, Math.min(H - VIEW_H, me.ry - (VIEW_H - 1) / 2));
+  ctx.fillStyle = "#0d0b14"; ctx.fillRect(0, 0, cv.width, cv.height);
+  for (let y = Math.floor(cy); y < Math.min(H, cy + VIEW_H + 1); y++)
+    for (let x = Math.floor(cx); x < Math.min(W, cx + VIEW_W + 1); x++) {
+      const c = MAP[y][x], px = (x - cx) * T, py = (y - cy) * T;
+      ctx.fillStyle = c === "#" ? "#3a3150" : c === "D" ? "#8a4b2a" : c === "E" ? "#2f6b4f" : (x + y) % 2 ? "#2a2438" : "#2e283d";
+      ctx.fillRect(px, py, T + 0.5, T + 0.5);
+      if (c === "D" || c === "E") { ctx.font = `${T * 0.6}px sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText(c === "D" ? "🔒" : "🚪", px + T / 2, py + T / 2); }
+    }
+  const others = Object.entries(mates).filter(([id, m]) => id !== me.uid && m.online && m.rx != null);
+  for (const [, m] of others) drawChar(m.rx, m.ry, m.avatar, m.nick, cx, cy, false);
+  drawChar(me.rx, me.ry, me.avatar, me.nick, cx, cy, true);
+}
+function drawChar(x, y, av, nick, cx, cy, mine) {
+  const px = (x - cx) * T + T / 2, py = (y - cy) * T + T / 2;
+  ctx.beginPath(); ctx.arc(px, py, T * 0.46, 0, Math.PI * 2);
+  ctx.fillStyle = mine ? "#ff7a3d55" : "#ffffff22"; ctx.fill();
+  ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = "#fff";
+  ctx.font = `${T * 0.7}px sans-serif`; ctx.fillText(AVATARS[av] ?? "❔", px, py + 1);
+  ctx.font = `bold ${Math.max(10, T * 0.32)}px sans-serif`;
+  ctx.fillText(nick, px, py - T * 0.62);
+}
+</script>
+</body>
+</html>
