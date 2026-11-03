@@ -54,7 +54,10 @@
     padding: 0 max(16px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); align-items:flex-end; }
   body.land #pad { pointer-events:auto; width:140px; height:140px; }
   body.land #pad .u { left:44px; } body.land #pad .d { left:44px; } body.land #pad .l, body.land #pad .r { top:44px; }
-  body.land #team { max-width:22%; }
+  body.land #team { max-width:22%; text-shadow:0 1px 3px #000; }
+  body.land #pad { opacity:.75; }
+  body.land #hud { position:absolute; left:0; right:0; top:0; z-index:2; pointer-events:none; text-shadow:0 1px 3px #000; }
+  body.land #hud > * { pointer-events:auto; }
 </style>
 </head>
 <body>
@@ -104,7 +107,8 @@ const MAP = [
   "#...........#",
   "###########E#",
 ];
-const VIEW_W = 9, VIEW_H = 11, STEP_MS = 140;
+let VIEW_W = 9, VIEW_H = 11; // 세로 9×11칸, 가로 13×7칸(보이는 칸 수를 비슷하게 맞춤)
+const STEP_MS = 140;
 const DIRS = { u:[0,-1], d:[0,1], l:[-1,0], r:[1,0] };
 const start = (() => { for (let y in MAP) { const x = MAP[y].indexOf("S"); if (x >= 0) return { x, y:+y }; } })();
 const walkable = (x, y) => { const c = MAP[y]?.[x]; return c && c !== "#" && c !== "D"; };
@@ -190,6 +194,8 @@ let T = 32;
 function resize() {
   const box = $("mapbox").getBoundingClientRect();
   if (box.width < 50 || box.height < 50) return; // 회전 도중의 임시 크기는 무시(0이 되면 지도가 사라짐)
+  const land = document.body.classList.contains("land");
+  VIEW_W = land ? 13 : 9; VIEW_H = land ? 7 : 11;
   T = Math.floor(Math.min((box.width - 16) / VIEW_W, (box.height - 8) / VIEW_H));
   const dpr = devicePixelRatio || 1;
   cv.style.width = T * VIEW_W + "px"; cv.style.height = T * VIEW_H + "px";
@@ -238,7 +244,7 @@ function drawChar(x, y, av, nick, cx, cy, mine) {
   ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = "#fff";
   ctx.font = `${T * 0.7}px sans-serif`; ctx.fillText(AVATARS[av] ?? "❔", px, py + 1);
   ctx.font = `bold ${Math.max(10, T * 0.32)}px sans-serif`;
-  ctx.fillText(nick, px, py - T * 0.62);
+  ctx.fillText(nick, px, py - T * 0.62 < 8 ? py + T * 0.62 : py - T * 0.62); // 맨 윗줄이면 이름표를 아래에
 }
 </script>
 </body>
