@@ -36,7 +36,11 @@
     font-size:14px; color:var(--dim); }
   #hud b { color:var(--text); letter-spacing:2px; }
   #hud button { background:none; border:1px solid var(--line); color:var(--dim); border-radius:8px; padding:4px 8px; }
-  #mapbox { flex:1; min-height:0; display:flex; align-items:center; justify-content:center; }
+  #mapbox { flex:1; min-height:0; display:flex; align-items:center; justify-content:center; position:relative; }
+  #status { position:absolute; inset:0; display:none; place-items:center; text-align:center; font-size:22px; font-weight:700;
+    padding:20px; background:#0d0b14cc; z-index:1; }
+  #status.on { display:grid; }
+  #timer.low { color:#ff8f8f; }
   canvas { display:block; border-radius:12px; }
   #panel { flex:none; height:200px; padding: 10px 16px max(14px, env(safe-area-inset-bottom)); display:flex;
     align-items:center; justify-content:space-between; background:var(--panel); border-top:1px solid var(--line); }
@@ -76,8 +80,8 @@
 </section>
 
 <section id="game" class="screen">
-  <div id="hud"><span>방 <b id="roomcode"></b></span><button id="out">나가기</button></div>
-  <div id="mapbox"><canvas id="cv"></canvas></div>
+  <div id="hud"><span>방 <b id="roomcode"></b> · ⏱ <b id="timer">--:--</b></span><button id="out">나가기</button></div>
+  <div id="mapbox"><canvas id="cv"></canvas><div id="status" role="status"></div></div>
   <div id="panel">
     <div id="pad" aria-label="방향키"><span class="u">▲</span><span class="l">◀</span><span class="r">▶</span><span class="d">▼</span></div>
     <ul id="team"></ul>
@@ -119,7 +123,7 @@ const $ = id => document.getElementById(id);
 const checkRotate = () => document.body.classList.toggle("land",
   (screen.orientation?.type ?? "").startsWith("landscape") || Math.abs(window.orientation ?? 0) === 90);
 addEventListener("resize", checkRotate); addEventListener("orientationchange", checkRotate); checkRotate();
-let avatar = 0, me = null, mates = {}, dir = null, lastStep = 0;
+let avatar = 0, me = null, mates = {}, dir = null, lastStep = 0, meta = { state: "wait" };
 
 // ── 입장 ──
 AVATARS.forEach((a, i) => {
@@ -132,7 +136,10 @@ $("avatars").children[0].classList.add("sel");
 
 let saved = null;
 try { saved = JSON.parse(localStorage.getItem("escape-profile")); } catch {}
-if (saved) { $("code").value = saved.code; $("nick").value = saved.nick; $("avatars").children[saved.avatar]?.click(); }
+if (saved) { $("code").value = saved.code || ""; $("nick").value = saved.nick; $("avatars").children[saved.avatar]?.click(); }
+try { $("msg").textContent = sessionStorage.getItem("escape-msg") || ""; sessionStorage.removeItem("escape-msg"); } catch {}
+const ERRORS = { NOCODE: "없는 방 코드예요. 선생님께 다시 확인하세요.", FULL: "이 팀은 자리가 다 찼어요. 선생님께 말씀하세요.",
+  KICKED: "선생님이 이 기기를 내보냈어요. 선생님께 말씀하세요." };
 
 $("go").onclick = async () => {
   const code = $("code").value.trim().toUpperCase(), nick = $("nick").value.trim();
@@ -146,14 +153,33 @@ $("go").onclick = async () => {
     me.rx = me.x; me.ry = me.y;
     net.move(me.x, me.y, me.d);
     net.onTeam(t => { mates = t; drawTeam(); });
+    net.onMeta(m => { meta = m; });
+    net.onKicked(() => {
+      try { sessionStorage.setItem("escape-msg", "선생님이 내보냈거나 반이 종료됐어요.");
+        localStorage.setItem("escape-profile", JSON.stringify({ nick, avatar })); } catch {}
+      location.reload();
+    });
+    setInterval(tick, 500); tick();
     $("roomcode").textContent = code;
     $("join").classList.remove("on"); $("game").classList.add("on");
     resize(); requestAnimationFrame(loop);
   } catch (e) {
-    $("msg").textContent = "접속에 실패했어요. 인터넷 연결을 확인하세요."; console.error(e);
+    $("msg").textContent = ERRORS[e.message] || "접속에 실패했어요. 인터넷 연결을 확인하세요."; console.error(e);
   } finally { $("go").disabled = false; }
 };
 $("out").onclick = async () => { await net.leave(); location.reload(); };
+
+// 남은 시간과 상태 안내. 움직일 수 있는지도 여기서 정한다.
+const left = () => meta.state === "play" ? meta.endsAt - net.serverNow() : meta.remain ?? 0;
+const playing = () => meta.state === "play" && left() > 0;
+function tick() {
+  const ms = Math.max(0, left()), sec = Math.ceil(ms / 1000);
+  $("timer").textContent = `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
+  $("timer").classList.toggle("low", playing() && sec <= 60);
+  const text = playing() ? "" : meta.state === "wait" ? "⏳ 선생님이 시작하면 움직일 수 있어요"
+    : meta.state === "pause" ? "⏸ 잠깐 멈춤" : "🏁 게임 끝!";
+  $("status").textContent = text; $("status").classList.toggle("on", !!text);
+}
 
 function drawTeam() {
   $("team").replaceChildren(...Object.entries(mates).map(([id, m]) => {
@@ -206,7 +232,7 @@ function resize() {
 new ResizeObserver(() => { if (me) resize(); }).observe($("mapbox"));
 
 function loop(now) {
-  if (dir && now - lastStep >= STEP_MS) {
+  if (dir && playing() && now - lastStep >= STEP_MS) {
     lastStep = now; me.d = dir;
     const [dx, dy] = DIRS[dir];
     if (walkable(me.x + dx, me.y + dy)) { me.x += dx; me.y += dy; net.move(me.x, me.y, me.d); }

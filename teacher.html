@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>교사 관리 · 열나는 지구 연구소 탈출</title>
+<style>
+  :root { --bg:#16131f; --panel:#221d30; --line:#3a3150; --text:#f3eefc; --dim:#a79cc0; --hot:#ff7a3d; --ok:#5ad19a; --bad:#ff6b6b; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif; }
+  button, input, select { font:inherit; }
+  button { cursor:pointer; border:0; border-radius:10px; padding:10px 14px; background:var(--line); color:var(--text); }
+  button:disabled { opacity:.4; cursor:default; }
+  button.hot { background:var(--hot); color:#fff; font-weight:700; }
+  button.bad { background:none; border:1px solid var(--bad); color:var(--bad); }
+  header { display:flex; flex-wrap:wrap; gap:8px 20px; align-items:center; justify-content:space-between; padding:14px 20px; border-bottom:1px solid var(--line); }
+  header h1 { margin:0; font-size:20px; }
+  header small { color:var(--dim); }
+  #url { color:var(--text); font-weight:700; }
+  #login { display:grid; place-items:center; gap:12px; padding:80px 20px; text-align:center; }
+  #main { display:none; grid-template-columns:260px 1fr; min-height:calc(100vh - 60px); }
+  @media (max-width:760px) { #main { grid-template-columns:1fr; } }
+  aside { padding:16px; border-right:1px solid var(--line); display:flex; flex-direction:column; gap:10px; }
+  aside h2, #board h2 { margin:6px 0; font-size:15px; color:var(--dim); font-weight:600; }
+  #classes { display:flex; flex-direction:column; gap:6px; }
+  #classes button { text-align:left; background:var(--panel); }
+  #classes button.sel { outline:2px solid var(--hot); }
+  form { display:grid; gap:8px; background:var(--panel); padding:12px; border-radius:12px; }
+  form label { display:grid; gap:4px; font-size:13px; color:var(--dim); }
+  form input, form select { padding:8px; border-radius:8px; border:1px solid var(--line); background:var(--bg); color:var(--text); }
+  #board { padding:20px; }
+  #empty { color:var(--dim); padding:40px 0; }
+  #top { display:flex; flex-wrap:wrap; gap:12px 24px; align-items:center; margin-bottom:18px; }
+  #cname { font-size:24px; font-weight:800; margin:0; }
+  #clock { font-size:44px; font-weight:800; font-variant-numeric:tabular-nums; }
+  #state { padding:4px 10px; border-radius:99px; background:var(--line); font-size:14px; }
+  #controls { display:flex; flex-wrap:wrap; gap:8px; }
+  #teams { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:12px; }
+  .team { background:var(--panel); border-radius:14px; padding:14px; display:flex; flex-direction:column; gap:8px; }
+  .team h3 { margin:0; display:flex; justify-content:space-between; align-items:baseline; font-size:16px; }
+  .team h3 small { color:var(--dim); font-weight:400; }
+  .code { font-size:38px; font-weight:800; letter-spacing:6px; color:var(--hot); }
+  .team ul { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; }
+  .team li { display:flex; align-items:center; gap:8px; }
+  .team li .dot { width:8px; height:8px; border-radius:50%; background:var(--ok); flex:none; }
+  .team li.off { opacity:.5; } .team li.off .dot { background:var(--dim); }
+  .team li span.n { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .team li button { padding:2px 8px; font-size:12px; }
+  #err { color:var(--bad); }
+</style>
+</head>
+<body>
+<header>
+  <h1>🌡️ 교사 관리</h1>
+  <small>학생 접속 주소: <span id="url"></span></small>
+  <small id="who"></small>
+</header>
+
+<section id="login">
+  <p>교사용 구글 계정으로 로그인하세요.</p>
+  <button id="loginBtn" class="hot">구글로 로그인</button>
+  <p id="err" role="alert"></p>
+</section>
+
+<section id="main">
+  <aside>
+    <h2>내 반 목록</h2>
+    <div id="classes"></div>
+    <h2>새 반 만들기</h2>
+    <form id="newClass">
+      <label>반 이름 <input name="name" required maxlength="20" placeholder="예: 1학년 3반"></label>
+      <label>팀 수 <select name="teams">
+        <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option selected>6</option></select></label>
+      <label>팀당 최대 인원 <select name="size"><option>3</option><option selected>4</option><option>5</option></select></label>
+      <label>게임 시간(분) <input name="min" type="number" min="5" max="90" value="25"></label>
+      <button class="hot">만들기 (팀 코드 자동 발급)</button>
+    </form>
+  </aside>
+
+  <div id="board">
+    <p id="empty">왼쪽에서 반을 고르거나 새로 만드세요.</p>
+    <div id="view" hidden>
+      <div id="top">
+        <h2 id="cname"></h2>
+        <span id="clock">--:--</span>
+        <span id="state"></span>
+        <div id="controls">
+          <button class="hot" data-act="start">▶ 시작</button>
+          <button data-act="pause">⏸ 일시정지</button>
+          <button data-act="plus5">+5분</button>
+          <button data-act="end">🏁 종료</button>
+          <button class="bad" id="del">반 삭제(초기화)</button>
+        </div>
+      </div>
+      <div id="teams"></div>
+    </div>
+  </div>
+</section>
+
+<script type="module">
+import * as net from "./net.js";
+const $ = id => document.getElementById(id);
+const AVATARS = ["🐱","🐶","🐰","🦊","🐼","🐸","🐧","🐻"];
+const STATE = { wait: "시작 전", play: "진행 중", pause: "일시정지", end: "종료" };
+$("url").textContent = new URL("./", location.href).href;
+
+let current = null, stopWatch = null, data = null;
+
+$("loginBtn").onclick = async () => {
+  $("err").textContent = "";
+  try {
+    const email = await net.teacherLogin();
+    $("who").textContent = email;
+    net.onClasses(showClasses, () => {
+      $("main").style.display = "none"; $("login").style.display = "grid";
+      $("err").textContent = `${email} 은(는) 교사로 등록된 계정이 아니에요. 보안 규칙의 이메일을 확인하세요.`;
+    });
+    $("login").style.display = "none"; $("main").style.display = "grid";
+  } catch (e) { $("err").textContent = "로그인에 실패했어요: " + e.message; }
+};
+
+function showClasses(list) {
+  const ids = Object.keys(list).sort((a, b) => list[b].createdAt - list[a].createdAt);
+  $("classes").replaceChildren(...ids.map(id => {
+    const b = document.createElement("button");
+    b.textContent = list[id].name; b.dataset.id = id; b.classList.toggle("sel", id === current);
+    b.onclick = () => open(id);
+    return b;
+  }));
+  if (current && !list[current]) close();
+}
+
+function open(id) {
+  stopWatch?.(); current = id;
+  [...$("classes").children].forEach(b => b.classList.toggle("sel", b.dataset.id === id));
+  $("empty").hidden = true; $("view").hidden = false;
+  stopWatch = net.watchClass(id, d => { data = d; render(); });
+}
+function close() { stopWatch?.(); stopWatch = null; current = null; data = null; $("view").hidden = true; $("empty").hidden = false; }
+
+$("newClass").onsubmit = async e => {
+  e.preventDefault();
+  const f = new FormData(e.target), btn = e.target.querySelector("button");
+  btn.disabled = true;
+  try { open(await net.createClass(f.get("name").trim(), +f.get("teams"), +f.get("size"), +f.get("min"))); e.target.reset(); }
+  catch (err) { alert("반을 만들지 못했어요: " + err.message); }
+  btn.disabled = false;
+};
+
+for (const b of $("controls").querySelectorAll("[data-act]")) b.onclick = () => net.control(current, b.dataset.act);
+$("del").onclick = async () => {
+  const name = data?.meta?.name;
+  if (prompt(`'${name}' 반의 기록과 팀 코드를 모두 지웁니다.\n접속한 학생은 모두 첫 화면으로 돌아갑니다.\n지우려면 반 이름을 그대로 입력하세요.`) !== name) return;
+  const id = current; close(); await net.deleteClass(id);
+};
+
+const left = m => m.state === "play" ? m.endsAt - net.serverNow() : m.remain ?? 0;
+function clock() {
+  if (!data?.meta) return;
+  const sec = Math.ceil(Math.max(0, left(data.meta)) / 1000);
+  $("clock").textContent = `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
+  const over = data.meta.state === "play" && sec === 0;
+  $("state").textContent = over ? "시간 종료" : STATE[data.meta.state];
+}
+setInterval(clock, 500);
+
+function render() {
+  const m = data.meta; if (!m) return;
+  $("cname").textContent = m.name;
+  $("controls").querySelector('[data-act="start"]').disabled = m.state === "play";
+  $("controls").querySelector('[data-act="pause"]').disabled = m.state !== "play";
+  const codes = Object.keys(m.teams).sort((a, b) => m.teams[a] - m.teams[b]);
+  $("teams").replaceChildren(...codes.map(code => {
+    const members = Object.entries(data.members[code] || {}).filter(([, v]) => v.nick);
+    const card = document.createElement("div"); card.className = "team";
+    const h = document.createElement("h3");
+    h.append(`${m.teams[code]}팀`); const sm = document.createElement("small");
+    sm.textContent = `${members.filter(([, v]) => v.online).length}명 접속 / 최대 ${m.maxMembers}명`; h.append(sm);
+    const c = document.createElement("div"); c.className = "code"; c.textContent = code;
+    const ul = document.createElement("ul");
+    for (const [kid, v] of members) {
+      const li = document.createElement("li"); if (!v.online) li.classList.add("off");
+      const dot = document.createElement("i"); dot.className = "dot";
+      const n = document.createElement("span"); n.className = "n"; n.textContent = `${AVATARS[v.avatar] ?? "❔"} ${v.nick}`;
+      const k = document.createElement("button"); k.textContent = "내보내기";
+      k.onclick = () => confirm(`${v.nick} 학생을 내보낼까요?\n이 기기로는 이 팀에 다시 들어올 수 없어요.`) && net.kick(current, code, kid);
+      li.append(dot, n, k); ul.append(li);
+    }
+    card.append(h, c, ul); return card;
+  }));
+  clock();
+}
+</script>
+</body>
+</html>
