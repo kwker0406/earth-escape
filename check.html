@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>보안 점검</title>
+<style>
+  body { margin:0; padding:20px; background:#16131f; color:#f3eefc; font-family:-apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif; }
+  input { padding:10px; font-size:18px; width:7em; text-transform:uppercase; border-radius:8px; border:1px solid #3a3150; background:#221d30; color:#fff; }
+  button { padding:10px 16px; font-size:16px; border:0; border-radius:10px; background:#ff7a3d; color:#fff; font-weight:700; }
+  li { margin:8px 0; line-height:1.5; } .ok { color:#5ad19a; } .bad { color:#ff6b6b; font-weight:700; }
+  p { color:#a79cc0; }
+</style>
+</head>
+<body>
+<h1>🛡️ 보안 점검</h1>
+<p>교사 화면에서 2팀짜리 시험용 반을 만든 뒤, <b>시크릿 창(또는 휴대폰)</b>에서 여세요. 끝나면 시험용 반을 삭제하세요.</p>
+<p>내 팀 코드 <input id="a" maxlength="6"> 다른 팀 코드 <input id="b" maxlength="6"> <button id="go">점검 시작</button></p>
+<ol id="out"></ol>
+<p id="sum"></p>
+<script type="module">
+import * as net from "./net.js";
+import { getAuth } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js";
+const $ = id => document.getElementById(id);
+
+$("go").onclick = async () => {
+  const A = $("a").value.trim().toUpperCase(), B = $("b").value.trim().toUpperCase();
+  $("out").replaceChildren(); $("sum").textContent = "";
+  try { await net.join(A, "점검", 0); } catch (e) { return $("sum").textContent = "내 팀 코드로 입장 실패: " + e.message; }
+  const db = getDatabase(), uid = getAuth().currentUser.uid, R = p => ref(db, p);
+  const sid = (await get(R(`codes/${A}`))).val(), base = t => `sessions/${sid}/teams/${t}`;
+  let fails = 0;
+  // [설명, 실행, 허용되어야 하는가]
+  const cases = [
+    ["우리 팀 내 위치 쓰기", () => set(R(`${base(A)}/pos/${uid}`), { x: 1, y: 1, d: "d", jail: 0 }), true],
+    ["우리 팀 팀원 목록 읽기", () => get(R(`${base(A)}/members`)), true],
+    ["다른 팀 팀원 목록 읽기", () => get(R(`${base(B)}/members`)), false],
+    ["다른 팀 위치 읽기", () => get(R(`${base(B)}/pos`)), false],
+    ["다른 팀에 내 위치 쓰기", () => set(R(`${base(B)}/pos/${uid}`), { x: 1, y: 1 }), false],
+    ["우리 팀에 가짜 팀원 만들기", () => set(R(`${base(A)}/members/fake123`), { nick: "가짜", avatar: 0, online: true }), false],
+    ["자리 없이 다른 팀 소속으로 바꾸기", () => set(R(`sessions/${sid}/players/${uid}`), { team: B, slot: "s1" }), false],
+    ["게임 시작·정지 바꾸기(교사 전용)", () => set(R(`sessions/${sid}/meta/state`), "play"), false],
+    ["반 목록 읽기(교사 전용)", () => get(R("classes")), false],
+    ["전체 팀 코드 읽기(교사 전용)", () => get(R("codes")), false],
+    ["새 팀 코드 만들기(교사 전용)", () => set(R("codes/ZZZZ"), sid), false],
+  ];
+  for (const [label, run, allowed] of cases) {
+    let ok; try { await run(); ok = true; } catch { ok = false; }
+    const li = document.createElement("li"), pass = ok === allowed;
+    if (!pass) fails++;
+    li.className = pass ? "ok" : "bad";
+    li.textContent = `${pass ? "✅" : "❌"} ${label} → ${ok ? "허용됨" : "막힘"} (${allowed ? "허용" : "막힘"}이어야 함)`;
+    $("out").append(li);
+  }
+  $("sum").textContent = fails ? `❌ ${fails}개 문제. 이 화면을 캡처해 보내 주세요.` : "✅ 모두 통과. 보안 규칙이 의도대로 작동합니다.";
+};
+</script>
+</body>
+</html>

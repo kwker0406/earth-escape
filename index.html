@@ -41,6 +41,17 @@
     padding:20px; background:#0d0b14cc; z-index:1; }
   #status.on { display:grid; }
   #timer.low { color:#ff8f8f; }
+  /* 괴물이 3칸 안에 있으면 지도 테두리가 붉게 깜빡임(방향키에 가려진 구석 대비) */
+  #mapbox.danger::after { content:""; position:absolute; inset:0; pointer-events:none; z-index:1;
+    box-shadow: inset 0 0 0 4px #ff3b3b, inset 0 0 36px #ff3b3b99; animation: blink .5s infinite alternate; }
+  @keyframes blink { to { opacity:.25; } }
+  #jail { position:absolute; inset:0; z-index:5; display:none; flex-direction:column; gap:14px; overflow-y:auto; touch-action:pan-y;
+    padding: max(24px, env(safe-area-inset-top)) 20px 24px; background:#1d0f16f5; }
+  #jail.on { display:flex; }
+  #jail h2 { margin:0; font-size:24px; } #jailMsg { margin:0; font-size:16px; color:#ffd2d2; }
+  #jailQ p { font-size:18px; font-weight:700; line-height:1.5; margin:0 0 12px; }
+  #jailQ button { display:block; width:100%; margin-bottom:10px; padding:14px; font-size:17px; text-align:left; border-radius:12px;
+    border:2px solid var(--line); background:var(--panel); color:var(--text); }
   canvas { display:block; border-radius:12px; }
   #panel { flex:none; height:200px; padding: 10px 16px max(14px, env(safe-area-inset-bottom)); display:flex;
     align-items:center; justify-content:space-between; background:var(--panel); border-top:1px solid var(--line); }
@@ -86,11 +97,18 @@
     <div id="pad" aria-label="방향키"><span class="u">▲</span><span class="l">◀</span><span class="r">▶</span><span class="d">▼</span></div>
     <ul id="team"></ul>
   </div>
+  <div id="jail" role="dialog" aria-label="보충수업실">
+    <h2>🔒 보충수업실</h2>
+    <p id="jailMsg" role="status"></p>
+    <div id="jailQ"></div>
+  </div>
 </section>
 
 <script type="module">
 import * as net from "./net.js";
 import { MAP } from "./maps.js";
+import { monstersAt, caught } from "./monsters.js";
+import { JAIL_QUESTIONS } from "./questions.js";
 
 const AVATARS = ["🐱","🐶","🐰","🦊","🐼","🐸","🐧","🐻"];
 let VIEW_W = 9, VIEW_H = 11; // 세로 9×11칸, 가로 13×7칸(보이는 칸 수를 비슷하게 맞춤)
@@ -106,6 +124,7 @@ const checkRotate = () => document.body.classList.toggle("land",
   (screen.orientation?.type ?? "").startsWith("landscape") || Math.abs(window.orientation ?? 0) === 90);
 addEventListener("resize", checkRotate); addEventListener("orientationchange", checkRotate); checkRotate();
 let avatar = 0, me = null, mates = {}, dir = null, lastStep = 0, meta = { state: "wait" };
+let mons = [], monR = [], grace = 0, quiz = null; // quiz: { i: 문제 번호, lock: 다시 풀 수 있는 시각 }
 
 // ── 입장 ──
 AVATARS.forEach((a, i) => {
@@ -132,8 +151,8 @@ $("go").onclick = async () => {
     const { uid, last } = await net.join(code, nick, avatar);
     try { localStorage.setItem("escape-profile", JSON.stringify({ code, nick, avatar })); } catch {}
     me = { uid, nick, avatar, ...(last && walkable(last.x, last.y) ? last : start), d: "d" };
-    me.rx = me.x; me.ry = me.y;
-    net.move(me.x, me.y, me.d);
+    me.rx = me.x; me.ry = me.y; me.jail ||= 0;
+    net.move(me.x, me.y, me.d, me.jail);
     net.onTeam(t => { mates = t; drawTeam(); });
     net.onMeta(m => { meta = m; });
     net.onKicked(() => {
@@ -161,12 +180,38 @@ function tick() {
   const text = playing() ? "" : meta.state === "wait" ? "⏳ 선생님이 시작하면 움직일 수 있어요"
     : meta.state === "pause" ? "⏸ 잠깐 멈춤" : "🏁 게임 끝!";
   $("status").textContent = text; $("status").classList.toggle("on", !!text);
+  jailTick();
+}
+
+// ── 보충수업실: 대기 시간이 끝나면 학습지 문제. 맞히면 시작점으로, 틀리면 10초 뒤 새 문제 ──
+function jailTick() {
+  $("jail").classList.toggle("on", me.jail > 0);
+  if (!me.jail) return;
+  const now = net.serverNow(), wait = Math.ceil((me.jail - now) / 1000);
+  if (wait > 0) { $("jailMsg").textContent = `괴물 선생님에게 잡혔다! ${wait}초 뒤에 탈출 문제가 나와요.`; $("jailQ").replaceChildren(); return; }
+  if (quiz?.lock > now) { $("jailMsg").textContent = `아쉬워요! ${Math.ceil((quiz.lock - now) / 1000)}초 뒤에 새 문제가 나와요.`; return; }
+  if (quiz && !quiz.lock) return; // 지금 푸는 중
+  let i; do i = Math.floor(Math.random() * JAIL_QUESTIONS.length); while (JAIL_QUESTIONS.length > 1 && i === quiz?.i);
+  quiz = { i, lock: 0 };
+  const Q = JAIL_QUESTIONS[i];
+  $("jailMsg").textContent = "문제를 맞히면 시작점으로 탈출!";
+  const p = document.createElement("p"); p.textContent = Q.q;
+  $("jailQ").replaceChildren(p, ...Q.c.map((c, k) => {
+    const b = document.createElement("button"); b.textContent = c;
+    b.onclick = () => k === Q.a ? escapeJail() : (quiz.lock = net.serverNow() + 10000, $("jailQ").replaceChildren(), jailTick());
+    return b;
+  }));
+}
+function escapeJail() {
+  Object.assign(me, start, { jail: 0 }); me.rx = me.x; me.ry = me.y;
+  grace = net.serverNow() + 3000; quiz = null; // 풀려나자마자 다시 잡히지 않게 3초 보호
+  net.move(me.x, me.y, me.d, 0); jailTick();
 }
 
 function drawTeam() {
   $("team").replaceChildren(...Object.entries(mates).map(([id, m]) => {
     const li = document.createElement("li");
-    li.textContent = `${AVATARS[m.avatar] ?? "❔"} ${m.nick}${id === me.uid ? " (나)" : ""}`;
+    li.textContent = `${AVATARS[m.avatar] ?? "❔"} ${m.nick}${id === me.uid ? " (나)" : ""}${m.jail ? " 🔒" : ""}`;
     if (!m.online) li.classList.add("off");
     return li;
   }));
@@ -189,7 +234,7 @@ pad.addEventListener("pointermove", e => { if (pad.hasPointerCapture(e.pointerId
 for (const t of ["pointerup", "pointercancel", "lostpointercapture"]) pad.addEventListener(t, () => setDir(null));
 // iOS: 두 손가락 확대·길게 누르기 메뉴 차단
 document.addEventListener("gesturestart", e => e.preventDefault());
-document.addEventListener("touchmove", e => { if (!e.target.closest("#join")) e.preventDefault(); }, { passive:false });
+document.addEventListener("touchmove", e => { if (!e.target.closest("#join, #jail")) e.preventDefault(); }, { passive:false });
 document.addEventListener("contextmenu", e => e.preventDefault());
 // PC 테스트용 키보드
 const KEYS = { ArrowUp:"u", ArrowDown:"d", ArrowLeft:"l", ArrowRight:"r" };
@@ -214,12 +259,22 @@ function resize() {
 new ResizeObserver(() => { if (me) resize(); }).observe($("mapbox"));
 
 function loop(now) {
-  if (dir && playing() && now - lastStep >= STEP_MS) {
+  mons = monstersAt(net.gameMs(meta), meta.seed ?? 1, MAP);
+  if (dir && playing() && !me.jail && now - lastStep >= STEP_MS) {
     lastStep = now; me.d = dir;
     const [dx, dy] = DIRS[dir];
     if (walkable(me.x + dx, me.y + dy)) { me.x += dx; me.y += dy; net.move(me.x, me.y, me.d); }
   }
+  if (playing() && !me.jail && net.serverNow() > grace && caught(mons, me.x, me.y)) {
+    me.jail = net.serverNow() + (meta.jailSec ?? 60) * 1000; setDir(null);
+    net.move(me.x, me.y, me.d, me.jail); jailTick();
+  }
+  $("mapbox").classList.toggle("danger", playing() && !me.jail && mons.some(m => Math.abs(m.x - me.x) + Math.abs(m.y - me.y) <= 3));
   me.rx += (me.x - me.rx) * 0.35; me.ry += (me.y - me.ry) * 0.35;
+  monR = mons.map((m, i) => { // 부드럽게 움직이되, 새로 나타나면 바로 그 자리로
+    const r = monR[i]; if (!r || Math.abs(r.x - m.x) + Math.abs(r.y - m.y) > 1.5) return { ...m };
+    return { ...m, x: r.x + (m.x - r.x) * 0.2, y: r.y + (m.y - r.y) * 0.2 };
+  });
   for (const id in mates) {
     const m = mates[id]; if (id === me.uid || m.x == null) continue;
     m.rx ??= m.x; m.ry ??= m.y;
@@ -241,7 +296,14 @@ function draw() {
       if (c === "D" || c === "E") { ctx.font = `${T * 0.6}px sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
         ctx.fillText(c === "D" ? "🔒" : "🚪", px + T / 2, py + T / 2); }
     }
-  const others = Object.entries(mates).filter(([id, m]) => id !== me.uid && m.online && m.rx != null);
+  for (const m of monR) {
+    const px = (m.x - cx) * T + T / 2, py = (m.y - cy) * T + T / 2;
+    ctx.globalAlpha = m.fresh ? 0.45 : 1; // 막 나타난 괴물은 흐리게
+    ctx.beginPath(); ctx.arc(px, py, T * 0.48, 0, Math.PI * 2); ctx.fillStyle = "#c0262680"; ctx.fill();
+    ctx.font = `${T * 0.72}px sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = "#fff";
+    ctx.fillText("👨‍🔬", px, py + 1); ctx.globalAlpha = 1;
+  }
+  const others = Object.entries(mates).filter(([id, m]) => id !== me.uid && m.online && !m.jail && m.rx != null);
   for (const [, m] of others) drawChar(m.rx, m.ry, m.avatar, m.nick, cx, cy, false);
   drawChar(me.rx, me.ry, me.avatar, me.nick, cx, cy, true);
 }

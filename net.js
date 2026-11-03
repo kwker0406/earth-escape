@@ -46,7 +46,11 @@ export async function join(code, nick, avatar) {
   return { uid, last };
 }
 
-export const move = (x, y, d) => set(R(`sessions/${sid}/teams/${team}/pos/${uid}`), { x, y, d }).catch(() => {});
+// jail: 보충수업실에서 풀려나는 서버 시각(0이면 자유)
+export const move = (x, y, d, jail = 0) => set(R(`sessions/${sid}/teams/${team}/pos/${uid}`), { x, y, d, jail }).catch(() => {});
+
+// 괴물 계산용 게임 시간. 시작 전이면 -1, 일시정지·종료 중에는 멈춘다.
+export const gameMs = m => m.state === "wait" ? -1 : (m.playedMs || 0) + (m.state === "play" ? serverNow() - m.startedAt : 0);
 
 // 같은 팀의 닉네임·아바타·위치가 바뀔 때마다 cb({uid: {...}})
 export function onTeam(cb) {
@@ -84,7 +88,7 @@ export async function teacherLogin() {
 export const onClasses = (cb, onErr) => onValue(R("classes"), s => cb(s.val() || {}), onErr);
 
 const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // 헷갈리는 O·0·I·1 제외
-export async function createClass(name, teamCount, maxMembers, minutes) {
+export async function createClass(name, teamCount, maxMembers, minutes, jailSec) {
   const id = push(R("sessions")).key;
   const used = new Set(Object.keys((await get(R("codes"))).val() || {}));
   const teams = {}, up = {};
@@ -96,7 +100,8 @@ export async function createClass(name, teamCount, maxMembers, minutes) {
     up[`codes/${code}`] = id;
     for (let s = 1; s <= maxMembers; s++) up[`sessions/${id}/teams/${code}/slots/s${s}`] = false;
   }
-  up[`sessions/${id}/meta`] = { name, state: "wait", remain: minutes * 60000, maxMembers, teams };
+  up[`sessions/${id}/meta`] = { name, state: "wait", remain: minutes * 60000, maxMembers, teams, jailSec,
+    seed: Math.floor(Math.random() * 1e9), playedMs: 0 };
   up[`classes/${id}`] = { name, createdAt: serverNow() };
   await update(R("/"), up);
   return id;
@@ -120,10 +125,11 @@ export function watchClass(id, cb) {
 export async function control(id, action) {
   const m = (await get(R(`sessions/${id}/meta`))).val(), now = serverNow();
   const left = m.state === "play" ? m.endsAt - now : m.remain;
+  const played = (m.playedMs || 0) + (m.state === "play" ? now - m.startedAt : 0); // 괴물 시계
   const change =
-    action === "start" ? { state: "play", endsAt: now + Math.max(0, left) } :
-    action === "pause" ? { state: "pause", remain: Math.max(0, left) } :
-    action === "end"   ? { state: "end", remain: 0 } :
+    action === "start" ? { state: "play", endsAt: now + Math.max(0, left), startedAt: now, playedMs: played } :
+    action === "pause" ? { state: "pause", remain: Math.max(0, left), playedMs: played } :
+    action === "end"   ? { state: "end", remain: 0, playedMs: played } :
     /* plus5 */ m.state === "play" ? { endsAt: Math.max(now, m.endsAt) + 300000 } : { remain: Math.max(0, m.remain) + 300000 };
   await update(R(`sessions/${id}/meta`), change);
 }
