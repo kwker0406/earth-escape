@@ -300,11 +300,19 @@ function runMonster(now, ph) {
   net.setMonster(mon);
 }
 
+// 화면 위치(rx, ry)를 목표 칸(x, y)으로 한 프레임에 최대 v칸씩 옮김. 2칸 넘게 벌어지면(순간이동·재접속) 바로 그 자리로
+function glide(o, x, y, v) {
+  if (o.rx == null || Math.abs(o.rx - x) + Math.abs(o.ry - y) > 2) return [x, y];
+  const step = (r, t) => Math.abs(t - r) <= v ? t : r + Math.sign(t - r) * v;
+  return [step(o.rx, x), step(o.ry, y)];
+}
+
 function loop(now) {
   const ph = phaseAt(net.gameMs(meta), meta.seed ?? 1);
   const active = ph.phase === "chase" && mon?.n === ph.n ? mon : null; // 이번 등장의 괴물만 보임
   if (dir && playing() && !me.jail && now - lastStep >= STEP_MS) {
-    lastStep = now; me.d = dir;
+    // 계속 누르고 있으면 정확히 140ms 간격으로 걷게(화면 주기 때문에 생기는 미세한 멈칫거림 방지)
+    lastStep = now - lastStep < STEP_MS * 2 ? lastStep + STEP_MS : now; me.d = dir;
     const [dx, dy] = DIRS[dir], nx = me.x + dx, ny = me.y + dy;
     const wasHidden = MAP[me.y][me.x] === "H", intoLocker = MAP[ny]?.[nx] === "H";
     if (intoLocker && net.serverNow() < hideBlockUntil) blockedMsgUntil = net.serverNow() + 1500; // 나온 지 15초가 안 됨
@@ -333,14 +341,15 @@ function loop(now) {
     : hidden ? `🫣 사물함에 숨는 중 (${Math.floor(hideMs / 1000)}초 / 60초)` : "";
   if ($("alert").textContent !== alert) $("alert").textContent = alert;
   $("alert").classList.toggle("on", !!alert);
-  me.rx += (me.x - me.rx) * 0.35; me.ry += (me.y - me.ry) * 0.35;
+  // 화면 위치는 일정한 속도로 따라감(한 칸 = 한 걸음 시간) → 계속 걸으면 끊김 없이 미끄러지듯 이동
+  [me.rx, me.ry] = glide(me, me.x, me.y, dt / STEP_MS);
   // 괴물은 부드럽게 움직이되, 새로 나타나면 바로 그 자리로
-  monR = !active ? null : !monR || Math.abs(monR.x - active.x) + Math.abs(monR.y - active.y) > 1.5 ? { ...active }
-    : { x: monR.x + (active.x - monR.x) * 0.35, y: monR.y + (active.y - monR.y) * 0.35 };
+  if (!active) monR = null;
+  else { monR ??= { rx: active.x, ry: active.y }; [monR.rx, monR.ry] = glide(monR, active.x, active.y, dt / (active.tid ? MON_STEP_MS : PATROL_STEP_MS) * 1.1);
+    monR.x = monR.rx; monR.y = monR.ry; }
   for (const id in mates) {
     const m = mates[id]; if (id === me.uid || m.x == null) continue;
-    m.rx ??= m.x; m.ry ??= m.y;
-    m.rx += (m.x - m.rx) * 0.25; m.ry += (m.y - m.ry) * 0.25;
+    [m.rx, m.ry] = glide(m, m.x, m.y, dt / STEP_MS * 1.2); // 통신 지연분을 따라잡도록 조금 빠르게
   }
   // 화면에 보이는 것이 바뀔 때만 다시 그림(가만히 있을 때 배터리·발열 절약)
   const key = [me.rx, me.ry, monR?.x, monR?.y, mon?.tid, T, VIEW_W, ...Object.values(mates).flatMap(m => [m.rx, m.ry, m.online, m.jail, m.nick])]
