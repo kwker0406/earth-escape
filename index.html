@@ -110,7 +110,7 @@
 <script type="module">
 import * as net from "./net.js";
 import { MAP } from "./maps.js";
-import { phaseAt, spawnTile, stepToward, nextTarget, hostOf, STEP_MS as MON_STEP_MS, HIDE_WARN_MS, HIDE_MAX_MS, HIDE_COOLDOWN_MS, PLAYER_STEP_MS, CHASE_MS } from "./monsters.js";
+import { phaseAt, spawnTile, stepToward, nextTarget, patrolStep, sightTiles, hostOf, STEP_MS as MON_STEP_MS, PATROL_STEP_MS, HIDE_WARN_MS, HIDE_MAX_MS, HIDE_COOLDOWN_MS, PLAYER_STEP_MS, CHASE_MS } from "./monsters.js";
 import { JAIL_QUESTIONS } from "./questions.js";
 
 const AVATARS = ["🐱","🐶","🐰","🦊","🐼","🐸","🐧","🐻"];
@@ -279,20 +279,24 @@ function caughtNow() {
   net.move(me.x, me.y, me.d, me.jail); jailTick();
 }
 
-// 방장 기기만: 추격 20초 동안 괴물을 학생보다 10% 빠르게 한 칸씩 움직여 서버에 올린다
+// 방장 기기만: 등장 20초 동안 괴물을 움직여 서버에 올린다.
+// 6칸 안에서 알아챈 학생은 학생보다 10% 빠르게 쫓고, 쫓을 학생이 없으면 느리게 순찰한다.
 function runMonster(now, ph) {
-  if (!playing() || ph.phase !== "chase" || now - mStep < MON_STEP_MS) return;
+  if (!playing() || ph.phase !== "chase" || now - mStep < (mon?.tid ? MON_STEP_MS : PATROL_STEP_MS)) return;
   const t = net.serverNow(), cur = mon?.n === ph.n ? mon : null;
   if (hostOf(mates, cur, t, t - (CHASE_MS - ph.left)) !== me.uid) return;
   mStep = now;
   const players = Object.entries(mates).filter(([, m]) => m.online && m.x != null)
     .map(([id, m]) => id === me.uid ? { id, x: me.x, y: me.y, jail: me.jail } : { id, x: m.x, y: m.y, jail: m.jail });
   if (mon?.n !== ph.n) { // 이번 등장의 첫 순간: 학생들에게서 5칸 이상 떨어진 곳에 나타남
-    mon = { n: ph.n, ...spawnTile(MAP, players.filter(p => !p.jail), meta.seed ?? 1, ph.n), by: me.uid, t };
+    mon = { n: ph.n, ...spawnTile(MAP, players.filter(p => !p.jail), meta.seed ?? 1, ph.n), by: me.uid, t, tid: null, h: 0 };
     mTarget = null; return net.setMonster(mon);
   }
+  // 방장이 바뀌었으면 서버에 남은 표적(tid)을 이어받는다
+  if (!mTarget && mon.tid) mTarget = { id: mon.tid, x: mon.x, y: mon.y, at: 0 };
   mTarget = nextTarget(MAP, mon, players, mTarget, now);
-  mon = { n: ph.n, ...stepToward(MAP, mon, mTarget), by: me.uid, t }; // 제자리여도 올려서 '살아 있음'을 알림
+  const step = mTarget ? { ...stepToward(MAP, mon, mTarget), h: mon.h ?? 0 } : patrolStep(MAP, mon, mon.h ?? 0);
+  mon = { n: ph.n, ...step, by: me.uid, t, tid: mTarget?.id ?? null }; // 제자리여도 올려서 '살아 있음'을 알림
   net.setMonster(mon);
 }
 
@@ -324,7 +328,8 @@ function loop(now) {
     : hidden && hideMs >= HIDE_WARN_MS ? `…발소리가 가까워진다. ${Math.ceil((HIDE_MAX_MS - hideMs) / 1000)}초 뒤 들킬 것 같아!`
     : net.serverNow() < blockedMsgUntil ? `🗄️ ${Math.ceil((hideBlockUntil - net.serverNow()) / 1000)}초 뒤에 다시 숨을 수 있어요`
     : ph.phase === "warn" ? "…누가 복도에 있니? (보충쌤이 곧 나타나요!)"
-    : active ? `👨‍🔬 보충쌤 등장! ${Math.ceil(ph.left / 1000)}초 버티기${hidden ? " · 🫣 숨는 중" : ""}`
+    : active?.tid === me.uid ? `😱 들켰다! 보충쌤이 나를 쫓아온다 (${Math.ceil(ph.left / 1000)}초)`
+    : active ? `👨‍🔬 보충쌤 ${active.tid ? "추격 중" : "순찰 중"}… ${Math.ceil(ph.left / 1000)}초 버티기${hidden ? " · 🫣 숨는 중" : ""}`
     : hidden ? `🫣 사물함에 숨는 중 (${Math.floor(hideMs / 1000)}초 / 60초)` : "";
   if ($("alert").textContent !== alert) $("alert").textContent = alert;
   $("alert").classList.toggle("on", !!alert);
@@ -338,7 +343,7 @@ function loop(now) {
     m.rx += (m.x - m.rx) * 0.25; m.ry += (m.y - m.ry) * 0.25;
   }
   // 화면에 보이는 것이 바뀔 때만 다시 그림(가만히 있을 때 배터리·발열 절약)
-  const key = [me.rx, me.ry, monR?.x, monR?.y, T, VIEW_W, ...Object.values(mates).flatMap(m => [m.rx, m.ry, m.online, m.jail, m.nick])]
+  const key = [me.rx, me.ry, monR?.x, monR?.y, mon?.tid, T, VIEW_W, ...Object.values(mates).flatMap(m => [m.rx, m.ry, m.online, m.jail, m.nick])]
     .map(v => typeof v === "number" ? v.toFixed(2) : v).join();
   if (key !== drawKey) { drawKey = key; draw(); }
   requestAnimationFrame(loop);
@@ -357,9 +362,16 @@ function draw() {
       if ("DEH".includes(c)) { ctx.font = `${T * 0.6}px sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
         ctx.fillText(c === "D" ? "🔒" : c === "E" ? "🚪" : "🗄️", px + T / 2, py + T / 2); }
     }
+  if (monR && !mon.tid) { // 순찰 중: 괴물이 알아챌 수 있는 칸(걸어서 6칸, 벽에 막히면 제외)을 반투명 빨강으로
+    ctx.fillStyle = "rgba(255, 45, 45, 0.2)";
+    for (const k of sightTiles(MAP, mon).keys()) {
+      const [x, y] = k.split(",").map(Number);
+      ctx.fillRect((x - cx) * T, (y - cy) * T, T, T);
+    }
+  }
   if (monR) {
     const px = (monR.x - cx) * T + T / 2, py = (monR.y - cy) * T + T / 2;
-    ctx.beginPath(); ctx.arc(px, py, T * 0.48, 0, Math.PI * 2); ctx.fillStyle = "#c0262690"; ctx.fill();
+    ctx.beginPath(); ctx.arc(px, py, T * 0.48, 0, Math.PI * 2); ctx.fillStyle = mon?.tid ? "#c0262690" : "#6a4a9a90"; ctx.fill(); // 추격 빨강, 순찰 보라
     ctx.font = `${T * 0.72}px sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = "#fff";
     ctx.fillText("👨‍🔬", px, py + 1);
   }

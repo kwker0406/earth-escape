@@ -113,7 +113,7 @@
 <script type="module">
 import * as net from "./net.js";
 import { MAP, FLOORS } from "./maps.js";
-import { phaseAt } from "./monsters.js";
+import { phaseAt, sightTiles } from "./monsters.js";
 const $ = id => document.getElementById(id);
 const AVATARS = ["🐱","🐶","🐰","🦊","🐼","🐸","🐧","🐻"];
 const STATE = { wait: "시작 전", play: "진행 중", pause: "일시정지", end: "종료" };
@@ -199,6 +199,11 @@ function paintMini(cv, code, members) {
   g.font = `${S * 1.6}px sans-serif`; g.textAlign = "center"; g.textBaseline = "middle";
   g.fillStyle = "#ff3b3b";
   const ph = phaseAt(net.gameMs(data.meta), data.meta.seed ?? 1), mo = data.monster[code];
+  if (ph.phase === "chase" && mo?.n === ph.n && !mo.tid) {
+    g.fillStyle = "rgba(255, 45, 45, 0.25)";
+    for (const k of sightTiles(MAP, mo).keys()) { const [x, y] = k.split(",").map(Number); g.fillRect(x * S, y * S, S, S); }
+    g.fillStyle = "#ff3b3b";
+  }
   if (ph.phase === "chase" && mo?.n === ph.n) { g.beginPath(); g.arc(mo.x * S + S / 2, mo.y * S + S / 2, S * 0.6, 0, 7); g.fill(); }
   for (const [kid, v] of members) {
     const q = data.pos[code]?.[kid];
