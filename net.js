@@ -54,7 +54,8 @@ export async function join(code, nick, avatar) {
 }
 
 // jail: 보충수업실에서 풀려나는 서버 시각(0이면 자유), f: 층
-export const move = (x, y, d, jail = 0, f = 0) => set(R(`sessions/${sid}/teams/${team}/pos/${uid}`), { x, y, d, jail, f }).catch(() => {});
+// seen: 사물함에 숨는 걸 괴물에게 들킴(괴물이 그 사물함을 열어 봄)
+export const move = (x, y, d, jail = 0, f = 0, seen = 0) => set(R(`sessions/${sid}/teams/${team}/pos/${uid}`), { x, y, d, jail, f, seen }).catch(() => {});
 
 // 팀 진행 { floor, score, wrong, solved: {퍼즐id: true}, tries: {퍼즐id: 횟수}, escaped, escapedAt }
 // 팀원 여럿이 동시에 풀어도 점수가 두 번 오르지 않게 트랜잭션으로 고친다. fn은 바꾼 값을, 바꿀 것이 없으면 undefined를 돌려준다
@@ -64,6 +65,17 @@ export const changeProgress = fn => runTransaction(R(`sessions/${sid}/teams/${te
 export const onProgress = cb => onValue(R(`sessions/${sid}/teams/${team}/progress`), s => cb(s.val() || NEW_PROGRESS), () => {});
 // 보충 명부: 내가 잡힌 횟수 +1
 export const addCaught = n => update(memberRef, { caught: n }).catch(() => {});
+// 주운 단서 { 단서key: 주운 uid }
+export const onGot = cb => onValue(R(`sessions/${sid}/teams/${team}/got`), s => cb(s.val() || {}), () => {});
+export const pickClue = key => set(R(`sessions/${sid}/teams/${team}/got/${key}`), uid).catch(() => {});
+// 물건(팀에 하나씩: flash 손전등, a·b·c 열쇠): { by: 가진 학생 uid } 또는 바닥에 떨어져 있으면 { by: null, x, y, f }
+export const onItems = cb => onValue(R(`sessions/${sid}/teams/${team}/items`), s => cb(s.val() || {}), () => {});
+export const setItem = (id, v) => set(R(`sessions/${sid}/teams/${team}/items/${id}`), v).catch(() => {});
+export const grabItem = id => runTransaction(R(`sessions/${sid}/teams/${team}/items/${id}`),
+  cur => cur && !cur.by ? { by: uid } : undefined).catch(() => {}); // 떨어진 것만 주울 수 있음(동시에 둘이 주워도 한 명만)
+// 보충수업실 구출 { f: 층, at: 시각 } → 그 층 보충실에 갇힌 팀원이 모두 풀려남
+export const rescue = f => set(R(`sessions/${sid}/teams/${team}/rescue`), { f, at: serverNow() }).catch(() => {});
+export const onRescue = cb => onValue(R(`sessions/${sid}/teams/${team}/rescue`), s => cb(s.val()), () => {});
 // 선생님 힌트 { text, at }
 export const onHint = cb => onValue(R(`sessions/${sid}/teams/${team}/hint`), s => cb(s.val()), () => {});
 

@@ -182,10 +182,11 @@ function clock() {
 setInterval(clock, 500);
 
 // 팀별 작은 지도: 벽과 접속 중인 팀원·괴물 위치. 카드는 그대로 두고 지도만 다시 칠한다.
-const S = 7, minis = {};
-const floorOf = code => data.progress[code]?.floor ?? 0;
+const minis = {}, sizeOf = MAP => Math.max(3, Math.min(7, Math.floor(360 / MAP[0].length))); // 큰 층(71칸)도 카드에 들어가게
+const mmss = ms => { const s = Math.floor(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
+const floorOf = code => data.progress[code]?.at ?? 1; // 팀이 지금 있는 층(처음 1층)
 function miniMap(code, members) {
-  const cv = minis[code] = document.createElement("canvas"), dpr = devicePixelRatio || 1, MAP = MAPS[floorOf(code)];
+  const cv = minis[code] = document.createElement("canvas"), dpr = devicePixelRatio || 1, MAP = MAPS[floorOf(code)], S = sizeOf(MAP);
   cv.width = MAP[0].length * S * dpr; cv.height = MAP.length * S * dpr;
   cv.style.width = MAP[0].length * S + "px"; cv.style.height = MAP.length * S + "px";
   cv.setAttribute("aria-label", `${data.meta.teams[code]}팀 위치 지도`);
@@ -193,9 +194,9 @@ function miniMap(code, members) {
   return cv;
 }
 function paintMini(cv, code, members) {
-  const g = cv.getContext("2d"), dpr = devicePixelRatio || 1, f = floorOf(code), MAP = MAPS[f]; g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const g = cv.getContext("2d"), dpr = devicePixelRatio || 1, f = floorOf(code), MAP = MAPS[f], S = sizeOf(MAP); g.setTransform(dpr, 0, 0, dpr, 0, 0);
   MAP.forEach((row, y) => [...row].forEach((ch, x) => {
-    g.fillStyle = ch === "#" ? "#3a3150" : ch === "D" ? "#8a4b2a" : ch === "E" ? "#2f6b4f" : ch === "H" ? "#7a5a3a" : /\d/.test(ch) ? "#2b3a55" : "#211c2e";
+    g.fillStyle = ch === "#" ? "#3a3150" : "+Gabcr".includes(ch) ? "#8a4b2a" : "CKRY".includes(ch) ? "#2f6b4f" : ch === "H" ? "#7a5a3a" : ch === "j" ? "#4a2228" : ch === "," ? "#2c3440" : /\d/.test(ch) ? "#2b3a55" : "#211c2e";
     g.fillRect(x * S, y * S, S, S);
   }));
   g.font = `${S * 1.6}px sans-serif`; g.textAlign = "center"; g.textBaseline = "middle";
@@ -209,7 +210,7 @@ function paintMini(cv, code, members) {
   if (ph.phase === "chase" && mo?.n === ph.n) { g.beginPath(); g.arc(mo.x * S + S / 2, mo.y * S + S / 2, S * 0.6, 0, 7); g.fill(); }
   for (const [kid, v] of members) {
     const q = data.pos[code]?.[kid];
-    if (v.online && q && !q.jail && (q.f ?? 0) === f) g.fillText(AVATARS[v.avatar] ?? "❔", q.x * S + S / 2, q.y * S + S / 2);
+    if (v.online && q && (q.f ?? 0) === f) g.fillText(AVATARS[v.avatar] ?? "❔", q.x * S + S / 2, q.y * S + S / 2);
   }
 }
 
@@ -226,11 +227,12 @@ function render() {
   if (sig === cardSig) { codes.forEach(c => minis[c] && paintMini(minis[c], c, membersOf(c))); return clock(); }
   cardSig = sig;
   const pr = code => { const p = { floor: 0, wrong: 0, score: 0, ...data.progress[code] }; return { ...p, solved: Object.keys(p.solved || {}).length }; };
-  // 순위: 점수 → 층 → 푼 문제 순
-  const ranked = [...codes].sort((a, b) => pr(b).score - pr(a).score || pr(b).floor - pr(a).floor || pr(b).solved - pr(a).solved);
+  // 순위: 탈출한 팀은 탈출 시간이 빠른 순, 나머지는 연 층 → 푼 퍼즐 수 순
+  const esc = c => pr(c).escaped ? pr(c).escapedMs ?? 0 : Infinity;
+  const ranked = [...codes].sort((a, b) => esc(a) - esc(b) || pr(b).floor - pr(a).floor || pr(b).solved - pr(a).solved);
   const rank = Object.fromEntries(ranked.map((c, i) => [c, i + 1]));
   $("ranking").replaceChildren(...ranked.map(c => {
-    const s = document.createElement("span"); s.textContent = `${rank[c]}위 ${m.teams[c]}팀 · ${pr(c).score}점`; return s;
+    const s = document.createElement("span"); s.textContent = `${rank[c]}위 ${m.teams[c]}팀 · ${pr(c).escaped ? "⏱ " + mmss(esc(c)) : "해결 " + pr(c).solved}`; return s;
   }));
   $("teams").replaceChildren(...codes.map(code => {
     const members = membersOf(code);
@@ -251,11 +253,11 @@ function render() {
     }
     const p = pr(code), row = document.createElement("div"); row.className = "row";
     const prog = document.createElement("div"); prog.className = "prog";
-    const fl = document.createElement("b"); fl.textContent = p.escaped ? "탈출 성공" : FLOOR_NAMES[p.floor];
+    const fl = document.createElement("b"); fl.textContent = p.escaped ? `탈출 성공 ⏱ ${mmss(p.escapedMs ?? 0)}` : FLOOR_NAMES[p.at ?? 1];
     const bar = document.createElement("div"); bar.className = "bar";
     const fill = document.createElement("i"); fill.style.width = `${p.escaped ? 100 : p.floor / FLOORS * 100}%`; bar.append(fill);
     const jailed = members.filter(([kid]) => data.pos[code]?.[kid]?.jail).length;
-    const st = document.createElement("span"); st.textContent = `점수 ${p.score} · 해결 ${p.solved} · 오답 ${p.wrong} · 🔒 ${jailed}명`;
+    const st = document.createElement("span"); st.textContent = `해결 ${p.solved} · 오답 ${p.wrong} · 🔒 ${jailed}명 · 보충 ${members.reduce((n, [, v]) => n + (v.caught || 0), 0)}회`;
     const hb = document.createElement("button"); hb.textContent = "📢 힌트 보내기";
     hb.onclick = () => { const t = prompt(`${m.teams[code]}팀에 보낼 힌트`, data.hint?.[code]?.text ?? ""); if (t?.trim()) net.sendHint(current, code, t.trim().slice(0, 120)); };
     prog.append(fl, bar, st, hb);
