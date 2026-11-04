@@ -26,10 +26,11 @@ export function phaseAt(gameMs, seed) {
 
 const startOf = map => { for (let y = 0; y < map.length; y++) { const x = map[y].indexOf("S"); if (x >= 0) return [x, y]; } };
 const dist = (a, b) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
-// 괴물이 갈 수 있는 칸: 바닥·출구(사물함·문·벽은 못 들어감), 시작점 안전 구역 밖
+// 괴물이 갈 수 있는 칸: 벽·문·사물함이 아닌 칸, 시작점 안전 구역 밖
 export function monsterTile(map, x, y) {
   const [sx, sy] = startOf(map);
-  return ".E".includes(map[y]?.[x] ?? "#") && Math.abs(x - sx) + Math.abs(y - sy) > SAFE_DIST;
+  const c = map[y]?.[x];
+  return c !== undefined && !"#DHS".includes(c) && Math.abs(x - sx) + Math.abs(y - sy) > SAFE_DIST; // 퍼즐 칸(숫자)·계단도 다님
 }
 
 // 등장 위치: 등장마다 5~8칸 중 하나를 무작위로 정해, 가장 가까운 학생과 딱 그 거리인 칸에 나타남.

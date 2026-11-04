@@ -84,7 +84,7 @@
         <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option selected>6</option></select></label>
       <label>팀당 최대 인원 <select name="size"><option>3</option><option selected>4</option><option>5</option></select></label>
       <label>게임 시간(분) <input name="min" type="number" min="5" max="90" value="25"></label>
-      <label>보충수업실 대기 <select name="jail"><option value="30">30초</option><option value="45">45초</option><option value="60" selected>60초</option></select></label>
+      <label>보충수업실 대기 <select name="jail"><option value="30" selected>30초</option><option value="45">45초</option><option value="60">60초</option></select></label>
       <button class="hot">만들기 (팀 코드 자동 발급)</button>
     </form>
   </aside>
@@ -112,7 +112,8 @@
 
 <script type="module">
 import * as net from "./net.js";
-import { MAP, FLOORS } from "./maps.js";
+import { MAPS, FLOORS } from "./maps.js";
+import { FLOOR_NAMES } from "./puzzles.js";
 import { phaseAt, sightTiles } from "./monsters.js";
 const $ = id => document.getElementById(id);
 const AVATARS = ["🐱","🐶","🐰","🦊","🐼","🐸","🐧","🐻"];
@@ -182,8 +183,9 @@ setInterval(clock, 500);
 
 // 팀별 작은 지도: 벽과 접속 중인 팀원·괴물 위치. 카드는 그대로 두고 지도만 다시 칠한다.
 const S = 7, minis = {};
+const floorOf = code => data.progress[code]?.floor ?? 0;
 function miniMap(code, members) {
-  const cv = minis[code] = document.createElement("canvas"), dpr = devicePixelRatio || 1;
+  const cv = minis[code] = document.createElement("canvas"), dpr = devicePixelRatio || 1, MAP = MAPS[floorOf(code)];
   cv.width = MAP[0].length * S * dpr; cv.height = MAP.length * S * dpr;
   cv.style.width = MAP[0].length * S + "px"; cv.style.height = MAP.length * S + "px";
   cv.setAttribute("aria-label", `${data.meta.teams[code]}팀 위치 지도`);
@@ -191,14 +193,14 @@ function miniMap(code, members) {
   return cv;
 }
 function paintMini(cv, code, members) {
-  const g = cv.getContext("2d"), dpr = devicePixelRatio || 1; g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const g = cv.getContext("2d"), dpr = devicePixelRatio || 1, f = floorOf(code), MAP = MAPS[f]; g.setTransform(dpr, 0, 0, dpr, 0, 0);
   MAP.forEach((row, y) => [...row].forEach((ch, x) => {
-    g.fillStyle = ch === "#" ? "#3a3150" : ch === "D" ? "#8a4b2a" : ch === "E" ? "#2f6b4f" : ch === "H" ? "#7a5a3a" : "#211c2e";
+    g.fillStyle = ch === "#" ? "#3a3150" : ch === "D" ? "#8a4b2a" : ch === "E" ? "#2f6b4f" : ch === "H" ? "#7a5a3a" : /\d/.test(ch) ? "#2b3a55" : "#211c2e";
     g.fillRect(x * S, y * S, S, S);
   }));
   g.font = `${S * 1.6}px sans-serif`; g.textAlign = "center"; g.textBaseline = "middle";
   g.fillStyle = "#ff3b3b";
-  const ph = phaseAt(net.gameMs(data.meta), data.meta.seed ?? 1), mo = data.monster[code];
+  const ph = phaseAt(net.gameMs(data.meta), data.meta.seed ?? 1), mo = data.monster[code]?.f === f ? data.monster[code] : null;
   if (ph.phase === "chase" && mo?.n === ph.n && !mo.tid) {
     g.fillStyle = "rgba(255, 45, 45, 0.25)";
     for (const k of sightTiles(MAP, mo).keys()) { const [x, y] = k.split(",").map(Number); g.fillRect(x * S, y * S, S, S); }
@@ -207,7 +209,7 @@ function paintMini(cv, code, members) {
   if (ph.phase === "chase" && mo?.n === ph.n) { g.beginPath(); g.arc(mo.x * S + S / 2, mo.y * S + S / 2, S * 0.6, 0, 7); g.fill(); }
   for (const [kid, v] of members) {
     const q = data.pos[code]?.[kid];
-    if (v.online && q && !q.jail) g.fillText(AVATARS[v.avatar] ?? "❔", q.x * S + S / 2, q.y * S + S / 2);
+    if (v.online && q && !q.jail && (q.f ?? 0) === f) g.fillText(AVATARS[v.avatar] ?? "❔", q.x * S + S / 2, q.y * S + S / 2);
   }
 }
 
@@ -223,7 +225,7 @@ function render() {
     codes.map(c => Object.entries(data.pos[c] || {}).filter(([, q]) => q.jail).map(([k]) => k))]);
   if (sig === cardSig) { codes.forEach(c => minis[c] && paintMini(minis[c], c, membersOf(c))); return clock(); }
   cardSig = sig;
-  const pr = code => ({ floor: 1, solved: 0, wrong: 0, score: 0, ...data.progress[code] });
+  const pr = code => { const p = { floor: 0, wrong: 0, score: 0, ...data.progress[code] }; return { ...p, solved: Object.keys(p.solved || {}).length }; };
   // 순위: 점수 → 층 → 푼 문제 순
   const ranked = [...codes].sort((a, b) => pr(b).score - pr(a).score || pr(b).floor - pr(a).floor || pr(b).solved - pr(a).solved);
   const rank = Object.fromEntries(ranked.map((c, i) => [c, i + 1]));
@@ -235,25 +237,28 @@ function render() {
     const card = document.createElement("div"); card.className = "team";
     const h = document.createElement("h3");
     h.append(`${rank[code]}위 · ${m.teams[code]}팀`); const sm = document.createElement("small");
+    if (pr(code).escaped) h.append(" 🎉 탈출!");
     sm.textContent = `${members.filter(([, v]) => v.online).length}명 접속 / 최대 ${m.maxMembers}명`; h.append(sm);
     const c = document.createElement("div"); c.className = "code"; c.textContent = code;
     const ul = document.createElement("ul");
     for (const [kid, v] of members) {
       const li = document.createElement("li"); if (!v.online) li.classList.add("off");
       const dot = document.createElement("i"); dot.className = "dot";
-      const n = document.createElement("span"); n.className = "n"; n.textContent = `${AVATARS[v.avatar] ?? "❔"} ${v.nick}`;
+      const n = document.createElement("span"); n.className = "n"; n.textContent = `${AVATARS[v.avatar] ?? "❔"} ${v.nick}${v.caught ? ` · 보충 ${v.caught}회` : ""}`;
       const k = document.createElement("button"); k.textContent = "내보내기";
       k.onclick = () => confirm(`${v.nick} 학생을 내보낼까요?\n'다시 받기'를 누르기 전까지 이 기기로는 이 팀에 들어올 수 없어요.`) && net.kick(current, code, kid);
       li.append(dot, n, k); ul.append(li);
     }
     const p = pr(code), row = document.createElement("div"); row.className = "row";
     const prog = document.createElement("div"); prog.className = "prog";
-    const fl = document.createElement("b"); fl.textContent = `${p.floor}층 / ${FLOORS}층`;
+    const fl = document.createElement("b"); fl.textContent = p.escaped ? "탈출 성공" : FLOOR_NAMES[p.floor];
     const bar = document.createElement("div"); bar.className = "bar";
-    const fill = document.createElement("i"); fill.style.width = `${Math.min(100, (p.floor - 1) / FLOORS * 100)}%`; bar.append(fill);
+    const fill = document.createElement("i"); fill.style.width = `${p.escaped ? 100 : p.floor / FLOORS * 100}%`; bar.append(fill);
     const jailed = members.filter(([kid]) => data.pos[code]?.[kid]?.jail).length;
     const st = document.createElement("span"); st.textContent = `점수 ${p.score} · 해결 ${p.solved} · 오답 ${p.wrong} · 🔒 ${jailed}명`;
-    prog.append(fl, bar, st);
+    const hb = document.createElement("button"); hb.textContent = "📢 힌트 보내기";
+    hb.onclick = () => { const t = prompt(`${m.teams[code]}팀에 보낼 힌트`, data.hint?.[code]?.text ?? ""); if (t?.trim()) net.sendHint(current, code, t.trim().slice(0, 120)); };
+    prog.append(fl, bar, st, hb);
     row.append(miniMap(code, members), prog);
     card.append(h, c, row, ul);
     const out = Object.entries(data.kicked[code] || {});

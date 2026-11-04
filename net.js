@@ -2,7 +2,7 @@
 import config from "./config.js";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
 import { getAuth, signInAnonymously, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
-import { getDatabase, ref, set, get, update, push, onValue, onDisconnect } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js";
+import { getDatabase, ref, set, get, update, push, onValue, onDisconnect, runTransaction } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js";
 
 const auth = getAuth(initializeApp(config));
 const db = getDatabase();
@@ -53,8 +53,19 @@ export async function join(code, nick, avatar) {
   return { uid, last };
 }
 
-// jail: 보충수업실에서 풀려나는 서버 시각(0이면 자유)
-export const move = (x, y, d, jail = 0) => set(R(`sessions/${sid}/teams/${team}/pos/${uid}`), { x, y, d, jail }).catch(() => {});
+// jail: 보충수업실에서 풀려나는 서버 시각(0이면 자유), f: 층
+export const move = (x, y, d, jail = 0, f = 0) => set(R(`sessions/${sid}/teams/${team}/pos/${uid}`), { x, y, d, jail, f }).catch(() => {});
+
+// 팀 진행 { floor, score, wrong, solved: {퍼즐id: true}, tries: {퍼즐id: 횟수}, escaped, escapedAt }
+// 팀원 여럿이 동시에 풀어도 점수가 두 번 오르지 않게 트랜잭션으로 고친다. fn은 바꾼 값을, 바꿀 것이 없으면 undefined를 돌려준다
+export const NEW_PROGRESS = { floor: 0, score: 0, wrong: 0 };
+export const changeProgress = fn => runTransaction(R(`sessions/${sid}/teams/${team}/progress`),
+  cur => fn(structuredClone(cur || NEW_PROGRESS))).catch(e => console.error(e));
+export const onProgress = cb => onValue(R(`sessions/${sid}/teams/${team}/progress`), s => cb(s.val() || NEW_PROGRESS), () => {});
+// 보충 명부: 내가 잡힌 횟수 +1
+export const addCaught = n => update(memberRef, { caught: n }).catch(() => {});
+// 선생님 힌트 { text, at }
+export const onHint = cb => onValue(R(`sessions/${sid}/teams/${team}/hint`), s => cb(s.val()), () => {});
 
 // 괴물 계산용 게임 시간. 시작 전이면 -1, 일시정지·종료 중에는 멈춘다.
 export const gameMs = m => m.state === "wait" ? -1 : (m.playedMs || 0) + (m.state === "play" ? serverNow() - m.startedAt : 0);
@@ -120,13 +131,13 @@ export async function createClass(name, teamCount, maxMembers, minutes, jailSec)
 
 // 반 상태와 팀별 접속자·진행 상황·위치를 지켜본다. 반환값을 부르면 그만 본다.
 export function watchClass(id, cb) {
-  const data = { meta: null, members: {}, kicked: {}, progress: {}, pos: {}, monster: {} }, offs = [];
+  const data = { meta: null, members: {}, kicked: {}, progress: {}, pos: {}, monster: {}, hint: {} }, offs = [];
   offs.push(onValue(R(`sessions/${id}/meta`), s => {
     data.meta = s.val(); cb(data);
     for (const code in data.meta?.teams || {}) if (!(code in data.members)) {
       data.members[code] = {};
       offs.push(onValue(R(`sessions/${id}/teams/${code}/members`), s2 => { data.members[code] = s2.val() || {}; cb(data); }));
-      for (const key of ["kicked", "progress", "pos", "monster"]) // pos·monster는 작은 지도용
+      for (const key of ["kicked", "progress", "pos", "monster", "hint"]) // pos·monster는 작은 지도용
         offs.push(onValue(R(`sessions/${id}/teams/${code}/${key}`), s2 => { data[key][code] = s2.val() || {}; cb(data); }));
     }
   }));
@@ -155,6 +166,8 @@ export async function kick(id, code, kid) {
     [`${t}/kicked/${kid}`]: nick, ...(slot ? { [`${t}/slots/${slot}`]: false } : {}),
   });
 }
+
+export const sendHint = (id, code, text) => set(R(`sessions/${id}/teams/${code}/hint`), { text, at: serverNow() });
 
 // 다시 받아 주기: 표시만 지운다. 학생이 다시 입장하면 빈자리를 차지한다.
 export const unkick = (id, code, kid) => update(R(`sessions/${id}/teams/${code}/kicked`), { [kid]: null });
