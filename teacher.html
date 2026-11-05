@@ -115,8 +115,9 @@ import * as net from "./net.js";
 import { MAPS, FLOORS } from "./maps.js";
 import { FLOOR_NAMES } from "./puzzles.js";
 import { phaseAt, sightTiles } from "./monsters.js";
+import { CHARS, sprite } from "./sprites.js";
 const $ = id => document.getElementById(id);
-const AVATARS = ["🐱","🐶","🐰","🦊","🐼","🐸","🐧","🐻"];
+const AVATARS = CHARS.map(c => c.emoji);
 const STATE = { wait: "시작 전", play: "진행 중", pause: "일시정지", end: "종료" };
 $("url").textContent = new URL("./", location.href).href;
 
@@ -182,7 +183,7 @@ function clock() {
 setInterval(clock, 500);
 
 // 팀별 작은 지도: 벽과 접속 중인 팀원·괴물 위치. 카드는 그대로 두고 지도만 다시 칠한다.
-const minis = {}, sizeOf = MAP => Math.max(3, Math.min(7, Math.floor(360 / MAP[0].length))); // 큰 층(71칸)도 카드에 들어가게
+const minis = {}, sizeOf = MAP => Math.max(2, Math.min(7, Math.floor(360 / MAP[0].length))); // 큰 층(71칸)도 카드에 들어가게
 const mmss = ms => { const s = Math.floor(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
 const floorOf = code => data.progress[code]?.at ?? 1; // 팀이 지금 있는 층(처음 1층)
 function miniMap(code, members) {
@@ -196,7 +197,7 @@ function miniMap(code, members) {
 function paintMini(cv, code, members) {
   const g = cv.getContext("2d"), dpr = devicePixelRatio || 1, f = floorOf(code), MAP = MAPS[f], S = sizeOf(MAP); g.setTransform(dpr, 0, 0, dpr, 0, 0);
   MAP.forEach((row, y) => [...row].forEach((ch, x) => {
-    g.fillStyle = ch === "#" ? "#3a3150" : "+Gabcr".includes(ch) ? "#8a4b2a" : "CKRY".includes(ch) ? "#2f6b4f" : ch === "H" ? "#7a5a3a" : ch === "j" ? "#4a2228" : ch === "," ? "#2c3440" : /\d/.test(ch) ? "#2b3a55" : "#211c2e";
+    g.fillStyle = ch === "#" ? "#3a3150" : "+Gabcr".includes(ch) ? "#8a4b2a" : "CKRYVWX".includes(ch) ? "#2f6b4f" : ch === "H" ? "#7a5a3a" : ch === "j" ? "#4a2228" : ch === "," ? "#2c3440" : "DBTL".includes(ch) ? "#3e3646" : /\d/.test(ch) ? "#2b3a55" : "#211c2e";
     g.fillRect(x * S, y * S, S, S);
   }));
   g.font = `${S * 1.6}px sans-serif`; g.textAlign = "center"; g.textBaseline = "middle";
@@ -210,7 +211,7 @@ function paintMini(cv, code, members) {
   if (ph.phase === "chase" && mo?.n === ph.n) { g.beginPath(); g.arc(mo.x * S + S / 2, mo.y * S + S / 2, S * 0.6, 0, 7); g.fill(); }
   for (const [kid, v] of members) {
     const q = data.pos[code]?.[kid];
-    if (v.online && q && (q.f ?? 0) === f) g.fillText(AVATARS[v.avatar] ?? "❔", q.x * S + S / 2, q.y * S + S / 2);
+    if (v.online && q && (q.f ?? 0) === f) { g.imageSmoothingEnabled = false; g.drawImage(sprite(v.avatar ?? 0, q.d || "d"), q.x * S - S / 2, q.y * S - S / 2, S * 2, S * 2); }
   }
 }
 

@@ -1,9 +1,10 @@
 // 괴물 '보충쌤'. 등장 시각은 모든 기기가 같은 계산으로 알고(게임 시간 + 반의 씨앗값),
 // 추격하는 20초 동안은 팀원 기기 한 대(방장)가 움직임을 계산해 서버에 올린다.
-export const PLAYER_STEP_MS = 140;
-export const STEP_MS = Math.round(PLAYER_STEP_MS / 1.1); // 학생보다 10% 빠름(127ms)
+export const PLAYER_STEP_MS = 167; // 학생 걸음: 초당 약 6칸
+export const STEP_MS = Math.round(PLAYER_STEP_MS / 1.1); // 학생보다 10% 빠름(152ms)
 export const RETARGET_MS = 500;   // 노리는 학생 위치를 0.5초마다 갱신 → 모퉁이에서 따돌릴 틈
-export const DETECT = 6;          // 알아채는 거리 6칸. 순찰 중엔 걸어서 6칸(벽 너머 X), 추격 중엔 직선 6칸(벽 너머 O)
+export const DETECT = 6;          // 쫓던 학생을 놓친 순간 직선 6칸 안(벽 너머 O)의 학생을 알아챔
+export const PATROL_DETECT = 12;  // 순찰 중엔 걸어서 12칸 안(벽 너머 X)
 export const PATROL_STEP_MS = 200; // 순찰할 때는 학생보다 느리게 걸음
 export const WARN_MS = 2000, CHASE_MS = 20000, REST_MS = 180000;
 const CYCLE = WARN_MS + CHASE_MS + REST_MS;
@@ -24,14 +25,17 @@ export function phaseAt(gameMs, seed) {
   return { phase: "rest", n, left: CYCLE - p };
 }
 
-const startOf = map => { for (let y = 0; y < map.length; y++) { const x = map[y].indexOf("S"); if (x >= 0) return [x, y]; } };
+const starts = new WeakMap(); // 지도마다 시작점(S)을 한 번만 찾음. S가 없는 층은 안전 구역 없음
+const startOf = map => { if (!starts.has(map)) { const y = map.findIndex(r => r.includes("S")); starts.set(map, y < 0 ? null : [map[y].indexOf("S"), y]); } return starts.get(map); };
 const dist = (a, b) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
-// 괴물이 갈 수 있는 칸: 벽·문·사물함이 아닌 칸, 시작점 안전 구역 밖
+// 괴물이 갈 수 있는 칸: 벽·사물함·계단·엘리베이터·보충실·잠긴 문이 아닌 칸, 현관(S) 안전 구역 밖. 교실 문(+)과 퍼즐 칸은 다님
 export function monsterTile(map, x, y) {
-  const [sx, sy] = startOf(map);
-  const c = map[y]?.[x];
-  return c !== undefined && !"#DHS".includes(c) && Math.abs(x - sx) + Math.abs(y - sy) > SAFE_DIST; // 퍼즐 칸(숫자)·계단도 다님
+  const c = map[y]?.[x], s = startOf(map);
+  return c !== undefined && !"#DHSjGabcrCKRYVWXBTL".includes(c) && (!s || Math.abs(x - s[0]) + Math.abs(y - s[1]) > SAFE_DIST);
 }
+export const DOOR_WAIT_MS = 2000; // 문을 지나면 2초 뒤에 따라 들어옴
+export const SEEK_MS = 1500;      // 사물함 앞에서 "어디에 숨었을까~" 하고 기다리는 시간
+export const SEEK_DIST = 2;       // 이 거리 안에서 숨는 걸 보면 그 사물함을 열어 봄
 
 // 등장 위치: 등장마다 5~8칸 중 하나를 무작위로 정해, 가장 가까운 학생과 딱 그 거리인 칸에 나타남.
 // 그런 칸이 없으면 5~8칸 중 되는 거리로, 그래도 없으면 5칸 이상 아무 곳. n·seed로 정해져 방장이 바뀌어도 같음
@@ -39,16 +43,16 @@ export function spawnTile(map, targets, seed, n) {
   const all = [];
   map.forEach((row, y) => [...row].forEach((_, x) => monsterTile(map, x, y) && all.push({ x, y })));
   const near = t => targets.length ? Math.min(...targets.map(p => dist(t, p))) : 99;
-  const want = 5 + Math.floor(rnd(seed * 17 + n * 389) * 4);
+  const want = PATROL_DETECT - 1 + Math.floor(rnd(seed * 17 + n * 389) * 4); // 알아채는 거리 언저리(11~14칸)
   const pick = pool => pool[Math.floor(rnd(seed * 131 + n * 977) * pool.length)];
-  for (const d of [want, 5, 6, 7, 8]) { const pool = all.filter(t => near(t) === d); if (pool.length) return pick(pool); }
-  const far = all.filter(t => near(t) >= 5);
+  for (const d of [want, ...[0, 1, 2, 3].map(i => PATROL_DETECT - 1 + i)]) { const pool = all.filter(t => near(t) === d); if (pool.length) return pick(pool); }
+  const far = all.filter(t => near(t) >= PATROL_DETECT - 1);
   return pick(far.length ? far : all);
 }
 
 // 순찰 중 인식 범위: 괴물이 걸어서 6칸 안에 갈 수 있는 칸들(벽에 막히면 못 봄). Map("x,y" → 걸음 수)
 let sightMemo = { k: "", v: null };
-export function sightTiles(map, m, r = DETECT) {
+export function sightTiles(map, m, r = PATROL_DETECT) {
   const k = `${m.x},${m.y},${r}`;
   if (sightMemo.k === k && sightMemo.map === map) return sightMemo.v;
   const seen = new Map([[`${m.x},${m.y}`, 0]]), q = [[m.x, m.y, 0]];
@@ -84,8 +88,8 @@ export function stepToward(map, m, target) {
   return { x: m.x, y: m.y };
 }
 
-// 노릴 수 있는 학생: 보충실에 없고, 사물함에 숨지 않았고, 안전 구역 밖
-const targetable = (map, p) => !p.jail && map[p.y]?.[p.x] !== "H" && monsterTile(map, p.x, p.y);
+// 노릴 수 있는 학생: 보충실에 없고, 안전 구역 밖. 사물함에 숨었으면 숨는 걸 들킨 경우(seen)만
+const targetable = (map, p) => !p.jail && (map[p.y]?.[p.x] === "H" ? !!p.seen : monsterTile(map, p.x, p.y));
 export function pickTarget(map, m, players) {
   return players.filter(p => targetable(map, p)).sort((a, b) => dist(m, a) - dist(m, b))[0] || null;
 }
@@ -123,3 +127,15 @@ export function hostOf(mates, mon, now, since) {
   const k = Math.max(0, Math.floor((now - (mon?.t ?? since)) / STALE_MS)); // since: 이번 추격이 시작된 시각
   return ids[k % ids.length];
 }
+
+// 숨는 걸 본 사물함(tp가 H 위)을 찾아감: 떨어져 있으면 다가가며 "어디에 숨었을까~",
+// 바로 옆에 오면 SEEK_MS 동안 두리번거린 뒤 "여기있네!" 하며 사물함 칸으로 들어감(= 잡힘). 아니면 null
+export function seekStep(map, mon, tp, step, t) {
+  if (!tp || map[tp.y]?.[tp.x] !== "H") return null;
+  if (Math.abs(tp.x - mon.x) + Math.abs(tp.y - mon.y) > 1) return { step, say: "어디에 숨었을까~", s1: 0 };
+  const s1 = mon.s1 || t;
+  return t - s1 < SEEK_MS ? { step: { x: mon.x, y: mon.y, h: mon.h ?? 0 }, say: "어디에 숨었을까~", s1 }
+    : { step: { x: tp.x, y: tp.y, h: mon.h ?? 0 }, say: "여기있네!", s1 };
+}
+// 문(+)으로 들어선 걸음이면 2초 동안 멈춤(그동안 안 보임) → 멈춤이 끝나는 시각, 아니면 0
+export const doorWait = (map, from, to, t) => (from.x !== to.x || from.y !== to.y) && map[to.y]?.[to.x] === "+" ? t + DOOR_WAIT_MS : 0;

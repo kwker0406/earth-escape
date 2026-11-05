@@ -25,7 +25,7 @@
     background:var(--panel); color:var(--text); }
   #code { text-transform:uppercase; letter-spacing:6px; text-align:center; font-weight:700; }
   #avatars { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
-  #avatars button { aspect-ratio:1; font-size:34px; border-radius:14px; border:3px solid var(--line); background:var(--panel); }
+  #avatars button { aspect-ratio:1; font-size:11px; padding:2px; display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--ink,#fff); border-radius:14px; border:3px solid var(--line); background:var(--panel); }
   #avatars button.sel { border-color:var(--hot); background:#3a2a2a; }
   .big { padding:16px; font-size:18px; font-weight:700; border:0; border-radius:14px; background:var(--hot); color:#fff; }
   #msg { min-height:20px; color:#ff8f8f; font-size:14px; }
@@ -82,7 +82,7 @@
   .wheel { display:flex; flex-direction:column; align-items:center; gap:4px; }
   .wheel button { width:56px; padding:8px 0; font-size:18px; border-radius:10px; border:1px solid var(--line); background:var(--panel); color:var(--text); }
   .dial { width:56px; height:56px; font-size:28px; font-weight:700; text-align:center; border-radius:10px; border:2px solid var(--hot); background:#0d0b14; color:#fff; }
-  .give { margin:6px 6px 0 0; padding:8px 10px; font-size:14px; border:0; border-radius:10px; background:#3a5f8a; color:#fff; }
+  .drop { margin:6px 6px 0 0; padding:8px 10px; font-size:14px; border:0; border-radius:10px; background:#3a5f8a; color:#fff; }
   #moveBar { position:absolute; left:0; right:0; bottom:10px; display:flex; gap:8px; justify-content:center; z-index:3; pointer-events:none; }
   #moveBar button { pointer-events:auto; padding:12px 16px; font-size:16px; font-weight:700; border:0; border-radius:12px; background:#2e9e5b; color:#fff; box-shadow:0 2px 8px #0008; }
   #moveBar button:disabled { background:#555; color:#ccc; }
@@ -154,25 +154,27 @@ import { MAPS, DARK, ROOMS } from "./maps.js";
 import { phaseAt, spawnTile, stepToward, nextTarget, patrolStep, sightTiles, hostOf, STEP_MS as MON_STEP_MS, PATROL_STEP_MS,
   HIDE_WARN_MS, HIDE_MAX_MS, HIDE_COOLDOWN_MS, PLAYER_STEP_MS, CHASE_MS, SEEK_DIST, seekStep, doorWait } from "./monsters.js";
 import { JAIL_QUESTIONS } from "./questions.js";
-import { buildPuzzles, check, clueSpots, clueOwner, FLOOR_NAMES, MONSTER_FLOORS, ROLL } from "./puzzles.js";
+import { CHARS, sprite } from "./sprites.js";
+import { buildPuzzles, check, clueSpots, clueOwner, dropSpot, scatter, FLOOR_NAMES, MONSTER_FLOORS, ROLL } from "./puzzles.js";
 
-const AVATARS = ["🐱","🐶","🐰","🦊","🐼","🐸","🐧","🐻"];
-let VIEW_W = 9, VIEW_H = 11; // 세로 9×11칸, 가로 13×7칸(보이는 칸 수를 비슷하게 맞춤)
+const AVATARS = CHARS.map(c => c.emoji); // 글자 목록용(팀 목록·결과)
+let VIEW_W = 10, VIEW_H = 12; // 세로 10×12칸, 가로 14×8칸(보이는 칸 수를 비슷하게 맞춤)
 const STEP_MS = PLAYER_STEP_MS; // 괴물 속도(10% 빠름)의 기준이라 monsters.js 값을 씀
 const DIRS = { u:[0,-1], d:[0,1], l:[-1,0], r:[1,0] };
 const D4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 const find = (map, ch) => { for (let y = 0; y < map.length; y++) { const x = map[y].indexOf(ch); if (x >= 0) return { x, y }; } };
-const STAIRS = "CKRY", LOCKS = "abcr"; // C 중앙 K 모서리 R 우측 계단, Y 엘리베이터 / 열쇠 문 a·b·c, 옥상 문 r
+const STAIRS = "CKRYVWX", LOCKS = "abcr"; // 올라가는 계단 C 중앙 K 모서리 R 우측, 내려가는 계단 V·W·X(같은 순서), Y 엘리베이터 / 열쇠 문 a·b·c, 옥상 문 r
+const PAIR = { C: "V", V: "C", K: "W", W: "K", R: "X", X: "R" }; // 같은 계단실의 위·아래 계단
 // 층에 들어설 때 서는 칸: 타고 온 계단(엘리베이터)과 같은 것 옆. 그 층에 없으면 모서리 계단, 처음엔 현관(S)
 function arrival(map, via) {
-  const s = (via && find(map, via)) || find(map, "S") || find(map, "K");
+  const s = (via && (find(map, via) || find(map, PAIR[via]))) || find(map, "S") || find(map, "K") || find(map, "W");
   if (map[s.y][s.x] === "S") return s;
   for (const [dx, dy] of D4) if (map[s.y + dy]?.[s.x + dx] === ".") return { x: s.x + dx, y: s.y + dy };
   return s;
 }
 const nextTo = (map, ch) => { const g = find(map, ch); if (g) for (const [dx, dy] of D4) if (map[g.y + dy]?.[g.x + dx] === ".") return { x: g.x + dx, y: g.y + dy }; };
 let MAP = MAPS[1];
-const walkable = (x, y) => { const c = MAP[y]?.[x]; return c && !"#DGj".includes(c) && (!LOCKS.includes(c) || !!progress.keys?.[c]); };
+const walkable = (x, y) => { const c = MAP[y]?.[x]; return c && !"#DGjBTL".includes(c) && (!LOCKS.includes(c) || !!progress.keys?.[c]); };
 
 const $ = id => document.getElementById(id);
 const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids); return e; };
@@ -190,7 +192,7 @@ const ITEM = { flash: "🔦 손전등", a: "🔑 온실 실험실 열쇠", b: "�
 const mine = () => Object.keys(items).filter(id => items[id]?.by === me.uid);
 
 // ── 입장 ──
-AVATARS.forEach((a, i) => $("avatars").append(el("button", { textContent: a, ariaLabel: "캐릭터 " + (i + 1),
+CHARS.forEach((c, i) => $("avatars").append(el("button", { innerHTML: `<img src="${sprite(i).toDataURL()}" alt="" style="width:70%;image-rendering:pixelated">${c.name}`, ariaLabel: c.name,
   onclick: () => { avatar = i; [...$("avatars").children].forEach((c, j) => c.classList.toggle("sel", j === i)); } })));
 $("avatars").children[0].classList.add("sel");
 
@@ -218,7 +220,7 @@ $("go").onclick = async () => {
     // 새로고침으로 숨기 제한·재사용 대기를 초기화하지 못하게 기기에 저장해 둔 값을 되살림
     try { ({ hideMs = 0, hideBlockUntil = 0 } = JSON.parse(localStorage.getItem("escape-hide-" + uid + code)) || {}); } catch {}
     save();
-    net.onTeam(t => { mates = t; drawTeam(); if ($("bag").classList.contains("on")) renderBag(); });
+    net.onTeam(t => { for (const id in t) if (mates[id]) Object.assign(t[id], { rx: mates[id].rx, ry: mates[id].ry }); mates = t; drawTeam(); if ($("bag").classList.contains("on")) renderBag(); });
     net.onMeta(m => { meta = m; if (!PZ && m.seed != null && m.teams?.[code]) PZ = buildPuzzles(m.seed, code, m.teams[code]); });
     net.onMonster(m => { mon = m; });
     net.onProgress(p => onProgress(p));
@@ -226,10 +228,8 @@ $("go").onclick = async () => {
       if (r && me.jail && r.f === me.f && r.at > me.jail - (meta.jailSec ?? 30) * 1000) { escapeJail(); toast("🔓 친구가 구출해 줬다!", 3000); }
     });
     net.onItems(v => {
-      const had = new Set(mine());
       if (flash?.by && !v.flash?.by) darkGrace = net.serverNow() + 3000; // 손전등이 떨어진 직후 3초는 경고만
       items = v; flash = v.flash ?? null; drawKey = "";
-      for (const id of mine()) if (!had.has(id) && v[id]?.from) toast(`🎁 ${ITEM[id]}을(를) 받았다!`, 3000);
       if ($("bag").classList.contains("on")) renderBag();
     });
     net.onGot(g => { got = g; drawKey = ""; if ($("bag").classList.contains("on")) renderBag(); });
@@ -276,19 +276,21 @@ function goFloor(f, via) { // 과반수가 모이면 팀 전체가 다른 층의
 const gateOf = f => PZ?.floors[f]?.find(p => p.gives?.up);
 function moves(ch, f = me.f) { // 이 계단에서 갈 수 있는 곳
   if (ch === "Y") return f === 3 ? [{ to: 0, label: "🛗 지하로" }] : f === 0 ? [{ to: 3, label: "🛗 3층으로" }] : []; // 엘리베이터는 3층↔지하만
-  const out = [];
-  if (f >= 1 && f <= 3 && !(f === 3 && ch === "C")) out.push({ to: f + 1, label: `⬆ ${f + 1}층으로`, locked: !solved(gateOf(f)?.id) }); // 3층 중앙 계단은 위로 못 감
-  if (f >= 2) out.push({ to: f - 1, label: `⬇ ${f - 1}층으로` }); // 1층 계단은 지하로 안 감
+  const out = [], up = "CKR".includes(ch);
+  if (up && f >= 1 && f <= 3 && !(f === 3 && ch === "C")) out.push({ to: f + 1, label: `⬆ ${f + 1}층으로`, locked: !solved(gateOf(f)?.id) }); // 3층 중앙 계단은 위로 못 감
+  if (!up && f >= 2) out.push({ to: f - 1, label: `⬇ ${f - 1}층으로` }); // 1층 계단은 지하로 안 감
   return out;
 }
-const zoneAt = (x, y) => { for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const c = MAP[y + dy]?.[x + dx];
-  if (c && STAIRS.includes(c) && moves(c).length) return { ch: c, x: x + dx, y: y + dy }; } return null; };
+const zoneAt = (x, y) => { let best = null; // 1칸 안의 쓸 수 있는 계단 중 가장 가까운 칸(위·아래 계단이 붙어 있어도 하나로 정해짐)
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const c = MAP[y + dy]?.[x + dx];
+    if (c && STAIRS.includes(c) && moves(c).length && (!best || Math.abs(dx) + Math.abs(dy) < best.d)) best = { ch: c, x: x + dx, y: y + dy, d: Math.abs(dx) + Math.abs(dy) }; }
+  return best; };
 let stairWait = "";
 function stairCheck() {
   const z = zoneAt(me.x, me.y), bar = $("moveBar"), clear = () => { bar.replaceChildren(); bar.dataset.sig = ""; };
   if (!z || !playing() || me.jail) { stairWait = ""; return clear(); }
   const ids = onlineIds(), need = Math.floor(ids.length / 2) + 1; // 과반수
-  const here = ids.filter(id => { const m = id === me.uid ? me : mates[id]; return m && sameFloor(m) && !m.jail && Math.max(Math.abs(m.x - z.x), Math.abs(m.y - z.y)) <= 1; }).length;
+  const here = ids.filter(id => { const m = id === me.uid ? me : mates[id]; return m && sameFloor(m) && !m.jail && zoneAt(m.x, m.y)?.ch === z.ch; }).length; // 같은 계단(2칸 중 어느 칸 옆이든)
   if (here < need) { stairWait = `🟩 모이는 중 (${here}/${ids.length}명 · ${need}명이 모이면 이동)`; return clear(); }
   stairWait = "";
   const opts = moves(z.ch), sig = z.ch + opts.map(m => m.to + "" + !!m.locked).join();
@@ -296,8 +298,10 @@ function stairCheck() {
   bar.replaceChildren(...opts.map(m => el("button", { textContent: m.locked ? `🔒 ${m.to}층 계단 잠김` : m.label, disabled: !!m.locked, onclick: () => goTo(z.ch, m.to) })));
 }
 function goTo(ch, to) {
-  if (ch === "Y" && to === 0 && !flashHeld()) return toast("🔦 너무 어두워요. 손전등을 든 사람이 있어야 내려갈 수 있어요", 3000);
+  const flashBelow = flash && !flash.by && flash.f === 0; // 지하에 떨어뜨리고 올라온 손전등(엘리베이터 앞에 있음)
+  if (ch === "Y" && to === 0 && !flashHeld() && !flashBelow) return toast("🔦 너무 어두워요. 손전등을 든 사람이 있어야 내려갈 수 있어요", 3000);
   const f = me.f;
+  if (f === 0 && flashBelow) dropAt("flash", 0, -1, -1, "Y"); // 지하에 두고 가면 엘리베이터 2칸 안으로 옮겨 둠(다시 내려올 때 빛이 있게)
   net.changeProgress(p => (p.at ?? 1) !== f ? undefined : { ...p, at: to, via: ch, floor: Math.max(p.floor ?? 0, to) });
 }
 // 손전등 빛: 든 사람(이 층) 또는 떨어진 자리. 지하에서 이 빛 3칸 밖으로 나가면 독단행동
@@ -327,11 +331,14 @@ function tick() {
   const text = playing() || progress.escaped ? "" : meta.state === "wait" ? "⏳ 선생님이 시작하면 움직일 수 있어요"
     : meta.state === "pause" ? "⏸ 잠깐 멈춤" : "🏁 게임 끝!";
   $("status").textContent = text; $("status").classList.toggle("on", !!text);
-  const act = action(); $("actBtn").disabled = !act; $("actBtn").textContent = act?.label ?? "🔍 조사";
+  const acts = actions(); $("actBtn").disabled = !acts.length; // 버튼 이름은 '조사' 그대로(할 일이 하나면 그 일을 바로)
+  $("actBtn").textContent = acts.length > 1 ? `🔍 조사 (${acts.length})` : acts[0]?.label.startsWith("🔓") ? "🔓 구출" : acts[0]?.label.startsWith("✋") ? "✋ 줍기" : acts[0]?.label.startsWith("📜") ? "📜 단서" : "🔍 조사";
   stairCheck(); jailTick();
-  for (const [id, v] of Object.entries(items)) { // 물건을 가진 학생이 나가면 그 자리에 떨어뜨림
-    const h = v?.by && v.by !== me.uid && mates[v.by];
-    if (h && !h.online) net.setItem(id, { by: null, x: h.x, y: h.y, f: h.f ?? 0 });
+  // 물건을 가진 학생이 나가거나 내보내지면 떨어뜨림(물건이 사라져 진행이 막히지 않게). 팀 목록을 받은 뒤에만
+  if (mates[me.uid]) for (const [id, v] of Object.entries(items)) {
+    if (!v?.by || v.by === me.uid || mates[v.by]?.online) continue;
+    const h = mates[v.by];
+    if (h?.x != null) dropAt(id, h.f ?? 0, h.x, h.y); else dropAt(id, progress.at ?? 1, -1, -1, "K"); // 위치를 모르면 팀이 있는 층 모서리 계단 2칸 안
   }
   try { localStorage.setItem("escape-hide-" + me.uid + me.code, JSON.stringify({ hideMs, hideBlockUntil })); } catch {}
 }
@@ -375,17 +382,31 @@ function stationNear() { // 내 칸이나 바로 옆 칸의 퍼즐 장소 번호
   for (const [dx, dy] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) { const c = MAP[me.y + dy]?.[me.x + dx]; if (/\d/.test(c)) return +c; }
   return 0;
 }
-// 조사 버튼 하나로: 퍼즐 칸 옆이면 퍼즐, 보충실 문 옆이고 갇힌 팀원이 있으면 구출
-function action() {
-  if (!PZ || !me || me.jail) return null;
-  const n = stationNear();
-  if (n && floorPz()[n - 1]) return { label: "🔍 조사", run: () => { openPz = floorPz()[n - 1]; pairPick = { sel: null, made: [] }; renderPuzzle(openPz); $("pz").classList.add("on"); } };
-  const atGate = D4.some(([dx, dy]) => MAP[me.y + dy]?.[me.x + dx] === "G");
-  if (atGate && Object.entries(mates).some(([id, m]) => id !== me.uid && m.online && m.jail && sameFloor(m)))
-    return { label: "🔓 구출", run: () => { net.rescue(me.f); toast("🔓 보충실 문을 열었다!", 2500); } };
-  return null;
+// 조사 버튼 하나로 주변과 상호작용: 내 칸이나 바로 옆(상하좌우)의 퍼즐 칸·떨어진 물건·내 단서(✨)·보충실 문(갇힌 친구가 있을 때)
+// 할 수 있는 일이 두 가지 이상이면 버튼을 누를 때 고르는 창이 뜬다
+const NEAR = [[0, 0], ...D4];
+function actions() {
+  if (!PZ || !me || me.jail) return [];
+  const out = [], n = stationNear();
+  if (n && floorPz()[n - 1]) out.push({ label: `🔍 ${floorPz()[n - 1].title}`, run: () => { openPz = floorPz()[n - 1]; pairPick = { sel: null, made: [] }; renderPuzzle(openPz); $("pz").classList.add("on"); } });
+  for (const [id, v] of Object.entries(items)) if (v && !v.by && v.f === me.f && NEAR.some(([dx, dy]) => v.x === me.x + dx && v.y === me.y + dy))
+    out.push({ label: `✋ ${ITEM[id]} 줍기`, run: () => { if (mine().length >= BAG_MAX) return toast("🎒 가방이 가득 찼어요(4칸). 하나를 내려놓고 주우세요", 2500);
+      net.grabItem(id); toast(`${ITEM[id]}을(를) 주웠다!`, 2500); } });
+  const near = mySparkles().filter(c => NEAR.some(([dx, dy]) => c.x === me.x + dx && c.y === me.y + dy));
+  if (near.length) out.push({ label: `📜 단서 줍기${near.length > 1 ? ` (${near.length}장)` : ""}`, run: () => {
+    for (const c of near) { got[c.key] = me.uid; net.pickClue(c.key); } toast("📜 단서를 주웠다! 🎒에서 확인하세요", 2500); } });
+  if (D4.some(([dx, dy]) => MAP[me.y + dy]?.[me.x + dx] === "G") && Object.entries(mates).some(([id, m]) => id !== me.uid && m.online && m.jail && sameFloor(m)))
+    out.push({ label: "🔓 보충실 친구 구출", run: () => { net.rescue(me.f); toast("🔓 보충실 문을 열었다!", 2500); } });
+  return out;
 }
-$("actBtn").onclick = () => action()?.run();
+$("actBtn").onclick = () => {
+  const acts = actions();
+  if (acts.length === 1) return acts[0].run();
+  if (!acts.length) return;
+  $("pz").replaceChildren(el("button", { className: "close", textContent: "닫기 ✕", onclick: closeModal }), el("h2", { textContent: "🔍 무엇을 할까?" }),
+    ...acts.map(a => el("button", { className: "opt", textContent: a.label, onclick: () => { closeModal(); a.run(); } })));
+  $("pz").classList.add("on");
+};
 $("bagBtn").onclick = () => { renderBag(); $("bag").classList.add("on"); };
 function closeModal() { openPz = null; $("pz").classList.remove("on"); $("bag").classList.remove("on"); }
 let pairPick = { sel: null, made: [] }, feedback = null;
@@ -445,7 +466,7 @@ async function submit(pz, input) {
   });
   if (!ok) return;
   const got1 = pz.gives?.flash ? "flash" : "abc".includes(pz.gives?.key ?? "x") ? pz.gives.key : null;
-  if (got1) net.setItem(got1, mine().length < BAG_MAX ? { by: me.uid } : { by: null, x: me.x, y: me.y, f: me.f }); // 가방이 차면 발밑에
+  if (got1) mine().length < BAG_MAX ? net.setItem(got1, { by: me.uid }) : dropAt(got1, me.f, me.x, me.y); // 가방이 차면 발밑에
   toast(pz.gives?.up ? "🔓 위층 계단이 열렸다! 계단 앞 초록 칸에 모이자" : pz.gives?.flash ? "🔦 손전등을 얻었다! 3층 엘리베이터로 지하에 갈 수 있어요"
     : pz.gives?.key ? `🔑 ${pz.gives.name}${pz.gives.key === "r" ? "이 열렸다!" : "를 얻었다! 🎒에 있어요"}` : "✅ 정답!", 4000);
 }
@@ -456,10 +477,12 @@ function renderBag() {
   const pcs = PZ ? PZ.pieces.filter((_, k) => solved(PZ.pieceFrom[k])) : [];
   $("bag").replaceChildren(el("button", { className: "close", textContent: "닫기 ✕", onclick: closeModal }),
     el("h2", { textContent: `🎒 내 물건 (${mine().length}/${BAG_MAX})` }),
-    ...(mine().length ? mine().map(id => el("div", { className: "card" }, ITEM[id], el("br"), ...nearMates().map(([mid, m]) =>
-      el("button", { className: "give", textContent: `🤝 ${m.nick}에게 주기`, onclick: () => giveTo(id, mid, m) })))) : [el("p", { className: "sub", textContent: "가진 물건이 없어요." })]),
+    el("p", { className: "sub", textContent: "친구에게 주려면 바닥에 내려놓고, 친구가 그 옆에서 🔍 조사를 눌러 줍게 하세요." }),
+    ...(mine().length ? mine().map(id => el("div", { className: "card" }, ITEM[id], el("br"),
+      el("button", { className: "drop", textContent: "⬇ 여기에 내려놓기", onclick: () => { dropAt(id, me.f, me.x, me.y); toast(`${ITEM[id]}을(를) 내려놓았다`, 2000); closeModal(); } })))
+      : [el("p", { className: "sub", textContent: "가진 물건이 없어요." })]),
     el("h2", { textContent: "📜 내 단서" }),
-    el("p", { className: "sub", textContent: `지도에서 반짝이는 ✨를 밟으면 단서를 주워요. 팀원마다 보이는 ✨가 달라요. 아직 못 주운 내 단서 ${left}개` }),
+    el("p", { className: "sub", textContent: `지도에서 반짝이는 ✨ 옆에서 🔍 조사를 누르면 단서를 주워요. 팀원마다 보이는 ✨가 달라요. 아직 못 주운 내 단서 ${left}개` }),
     ...(clues.length ? clues.map(c => el("div", { className: "card" }, el("small", { textContent: c.pz }), c.t)) : [el("p", { className: "sub", textContent: "아직 주운 단서가 없어요." })]),
     el("h2", { textContent: "🧩 숫자 조각 (팀 공용)" }),
     ...(pcs.length ? pcs.map(p => el("div", { className: "card", textContent: `${p.event} — ${p.num}` })) : [el("p", { className: "sub", textContent: "몇몇 퍼즐을 풀면 조각을 얻어요." })]),
@@ -468,11 +491,14 @@ function renderBag() {
 }
 
 const mmss = ms => { const s = Math.floor(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
-// 건네기: 바로 옆(1칸 안) 같은 층 팀원에게
-const nearMates = () => Object.entries(mates).filter(([id, m]) => id !== me.uid && m.online && !m.jail && sameFloor(m) && Math.max(Math.abs(m.x - me.x), Math.abs(m.y - me.y)) <= 1);
-function giveTo(id, mid, m) {
-  if (Object.values(items).filter(v => v?.by === mid).length >= BAG_MAX) return toast(`${m.nick}의 가방이 가득 찼어요`, 2000);
-  net.setItem(id, { by: mid, from: me.uid }); toast(`🤝 ${m.nick}에게 ${ITEM[id]}을(를) 건넸다`, 2500);
+// 물건을 바닥에 놓는 곳: 보충실 안·벽·잠긴 문이면 보충실 문 앞(없으면 모서리 계단 옆)으로 → 아무도 못 가는 곳에 떨어지지 않게
+// 이 층 바닥에 이미 놓인 물건 칸(물건끼리 겹치지 않게)
+const takenOn = f => new Set(Object.values(items).filter(v => v && !v.by && v.f === f).map(v => v.x + "," + v.y));
+function dropAt(id, f, x, y, near = "G") { // near: 그 자리에 못 둘 때 옮길 기준(보충실 문 G, 모서리 계단 K, 엘리베이터 Y)
+  const map = MAPS[f], c = map[y]?.[x], ok = c && !"#jGDBTLH".includes(c) && !LOCKS.includes(c), taken = takenOn(f);
+  const target = find(map, near) ?? find(map, "K") ?? find(map, "W") ?? find(map, "Y");
+  const spot = (ok && scatter(map, { x, y }, 1, taken)[0]) || dropSpot(map, target, id, taken); // 그 자리(차 있으면 바로 옆) / 문·계단 2칸 안 복도
+  items[id] = { by: null, f, ...spot }; net.setItem(id, items[id]); // 이어서 떨어뜨리는 물건이 같은 칸을 고르지 않게 바로 반영
 }
 function showEnd() {
   if ($("end").classList.contains("on")) return;
@@ -516,7 +542,7 @@ function resize() {
   const box = $("mapbox").getBoundingClientRect();
   if (box.width < 50 || box.height < 50) return; // 회전 도중의 임시 크기는 무시(0이 되면 지도가 사라짐)
   const land = document.body.classList.contains("land");
-  VIEW_W = land ? 13 : 9; VIEW_H = land ? 7 : 11;
+  VIEW_W = land ? 14 : 10; VIEW_H = land ? 8 : 12;
   T = Math.floor(Math.min((box.width - 16) / VIEW_W, (box.height - 8) / VIEW_H));
   const dpr = devicePixelRatio || 1;
   cv.style.width = T * VIEW_W + "px"; cv.style.height = T * VIEW_H + "px";
@@ -535,7 +561,9 @@ const jailCell = () => { // 이 층 보충실 안 빈칸(갇힌 친구와 겹치
   return cells.length ? cells[(k * 3) % cells.length] : { x: me.x, y: me.y };
 };
 function caughtNow(line = "") {
-  for (const id of mine()) net.setItem(id, { by: null, x: me.x, y: me.y, f: me.f }); // 가진 물건은 그 자리에 떨어뜨림
+  // 가진 물건은 잡힌 자리에 하나씩 겹치지 않게 뿌림(2칸 안, 모자라면 3칸). 사물함에서 잡혔으면 사물함 칸은 빼고 그 주변에
+  const ids = mine(), spots = scatter(MAP, { x: me.x, y: me.y }, ids.length, takenOn(me.f), MAP[me.y][me.x] !== "H");
+  ids.forEach((id, i) => { items[id] = { by: null, f: me.f, ...(spots[i] ?? { x: me.x, y: me.y }) }; net.setItem(id, items[id]); });
   me.jail = net.serverNow() + (meta.jailSec ?? 30) * 1000; hideMs = 0; me.seen = 0; jailLine = line; setDir(null); closeModal();
   Object.assign(me, jailCell()); me.rx = me.x; me.ry = me.y;
   net.addCaught((mates[me.uid]?.caught || 0) + 1); // 보충 명부(감점 없음)
@@ -553,7 +581,7 @@ function runMonster(now, ph) {
   mStep = now;
   const players = Object.entries(here).filter(([, m]) => m.online && m.x != null)
     .map(([id, m]) => id === me.uid ? { id, x: me.x, y: me.y, jail: me.jail, seen: me.seen } : { id, x: m.x, y: m.y, jail: m.jail, seen: m.seen });
-  if (!cur) { // 이번 등장의 첫 순간: 가장 가까운 학생에게서 5~8칸 떨어진 곳에 나타남
+  if (!cur) { // 이번 등장의 첫 순간: 가장 가까운 학생에게서 11~14칸 떨어진 곳에 나타남
     mon = { n: ph.n, f: me.f, ...spawnTile(MAP, players.filter(p => !p.jail), meta.seed ?? 1, ph.n * 7 + me.f), by: me.uid, t, tid: null, h: 0 };
     mTarget = null; return net.setMonster(mon);
   }
@@ -600,18 +628,14 @@ function loop(now) {
     if (into === "H" && net.serverNow() < hideBlockUntil) toast(`🗄️ ${Math.ceil((hideBlockUntil - net.serverNow()) / 1000)}초 뒤에 다시 숨을 수 있어요`, 1500);
     else if (LOCKS.includes(into) && !progress.keys?.[into]) {
       if (items[into]?.by === me.uid) { // 맞는 열쇠를 가졌으면 문을 열고 열쇠는 문에 꽂아 둠(팀 전체에 열림)
-        net.changeProgress(p => ({ ...p, keys: { ...p.keys, [into]: true } })); net.setItem(into, null); toast("🔓 열쇠로 문을 열었다!", 2500);
+        net.changeProgress(p => ({ ...p, keys: { ...p.keys, [into]: true } })) // 문이 열린 게 저장된 뒤에만 열쇠를 없앰(실패하면 열쇠는 그대로)
+          .then(r => { if (r?.snapshot?.val()?.keys?.[into]) { net.setItem(into, null); toast("🔓 열쇠로 문을 열었다!", 2500); } });
       } else toast(into === "r" ? "🔐 옥상 문이 잠겨 있어요. 비밀번호가 필요해요" : `🔒 잠겨 있어요. ${ITEM[into]?.slice(2) ?? "열쇠"}가 필요해요`, 2000);
     }
     else if (walkable(nx, ny) && !lockerTaken(nx, ny)) {
       // 괴물이 2칸 안에서 숨는 걸 보면 그 사물함을 열어 본다
       me.seen = into === "H" && mon?.n === ph.n && mon.f === me.f && ph.phase === "chase" && Math.abs(mon.x - nx) + Math.abs(mon.y - ny) <= SEEK_DIST ? 1 : 0;
       me.x = nx; me.y = ny; save();
-      for (const [id, v] of Object.entries(items)) if (v && !v.by && v.f === me.f && v.x === nx && v.y === ny) {
-        if (mine().length >= BAG_MAX) toast("🎒 가방이 가득 찼어요(4칸)", 2000); else { net.grabItem(id); toast(`${ITEM[id]}을(를) 주웠다!`, 2500); }
-      }
-      const c = mySparkles().find(c => c.x === nx && c.y === ny);
-      if (c) { got[c.key] = me.uid; net.pickClue(c.key); toast("📜 단서를 주웠다! 🎒에서 확인하세요", 2500); }
       if (wasHidden && into !== "H") hideBlockUntil = net.serverNow() + HIDE_COOLDOWN_MS;
     }
   }
@@ -646,15 +670,17 @@ function loop(now) {
   // 화면 위치는 일정한 속도로 따라감(한 칸 = 한 걸음 시간) → 계속 걸으면 끊김 없이 미끄러지듯 이동
   [me.rx, me.ry] = glide(me, me.x, me.y, dt / STEP_MS);
   if (!active) monR = null;
-  else { monR ??= { rx: active.x, ry: active.y }; [monR.rx, monR.ry] = glide(monR, active.x, active.y, dt / (active.tid ? MON_STEP_MS : PATROL_STEP_MS) * 1.1);
+  else { monR ??= { rx: active.x, ry: active.y, d: "d" }; const mdx = active.x - monR.rx, mdy = active.y - monR.ry;
+    if (Math.abs(mdx) + Math.abs(mdy) > 0.01) monR.d = Math.abs(mdx) > Math.abs(mdy) ? (mdx > 0 ? "r" : "l") : (mdy > 0 ? "d" : "u");
+    monR.tx = active.x; monR.ty = active.y; [monR.rx, monR.ry] = glide(monR, active.x, active.y, dt / (active.tid ? MON_STEP_MS : PATROL_STEP_MS) * 1.1);
     monR.x = monR.rx; monR.y = monR.ry; }
   for (const id in mates) {
     const m = mates[id]; if (id === me.uid || m.x == null) continue;
     [m.rx, m.ry] = glide(m, m.x, m.y, dt / STEP_MS * 1.2); // 통신 지연분을 따라잡도록 조금 빠르게
   }
   // 화면에 보이는 것이 바뀔 때만 다시 그림(가만히 있을 때 배터리·발열 절약)
-  const key = [mySparkles().length ? Math.floor(now / 100) : 0, me.f, JSON.stringify(items), progress.keys && Object.keys(progress.keys).join(), me.rx, me.ry, monR?.x, monR?.y, mon?.tid, mon?.say, T, VIEW_W, JSON.stringify(progress.solved ?? {}),
-    ...Object.values(mates).flatMap(m => [m.rx, m.ry, m.online, m.jail, m.nick, m.f])]
+  const key = [mySparkles().length ? Math.floor(now / 100) : 0, Math.floor(now / WALK_MS), me.d, monR?.d, me.f, JSON.stringify(items), progress.keys && Object.keys(progress.keys).join(), me.rx, me.ry, monR?.x, monR?.y, mon?.tid, mon?.say, T, VIEW_W, JSON.stringify(progress.solved ?? {}),
+    ...Object.values(mates).flatMap(m => [m.rx, m.ry, m.d, m.online, m.jail, m.nick, m.f])]
     .map(v => typeof v === "number" ? v.toFixed(2) : v).join();
   if (key !== drawKey) { drawKey = key; draw(); }
   requestAnimationFrame(loop);
@@ -680,12 +706,14 @@ function seer() { // (x, y)가 지금 보이는지
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (mine.has(id[(y + dy) * W + x + dx]) && MAP[y + dy]?.[x + dx]) return true; return false; };
 }
 const TILE = { "#": "#3a3150", "+": "#5a4630", G: "#7a2a2a", j: "#3a2228", H: "#4a3b2c", a: "#6a3a2a", b: "#6a3a2a", c: "#6a3a2a", r: "#6a3a2a",
-  C: "#2f4f6b", K: "#2f4f6b", R: "#2f4f6b", Y: "#3b3b55", ",": "#2c2838" };
-const ICON = { C: "🪜", K: "🪜", R: "🪜", Y: "🛗", H: "🗄️", G: "🚪", S: "🏫" };
+  C: "#2f4f6b", K: "#2f4f6b", R: "#2f4f6b", V: "#3f3f6b", W: "#3f3f6b", X: "#3f3f6b", Y: "#3b3b55", ",": "#2c2838",
+  B: "#2f5a3c", T: "#7a5230", D: "#8a6a44", L: "#4a5266" }; // 칠판·교탁·책상·교실 사물함
+const ICON = { C: "🔼", K: "🔼", R: "🔼", V: "🔽", W: "🔽", X: "🔽", Y: "🛗", H: "🗄️", G: "🚪", S: "🏫" };
 function draw() {
   const W = MAP[0].length, H = MAP.length, see = seer();
   const cx = Math.max(0, Math.min(W - VIEW_W, me.rx - (VIEW_W - 1) / 2));
   const cy = Math.max(0, Math.min(H - VIEW_H, me.ry - (VIEW_H - 1) / 2));
+  ctx.imageSmoothingEnabled = false; // 도트가 번지지 않게(캔버스 크기가 바뀌면 초기화되므로 매번)
   ctx.fillStyle = "#05040a"; ctx.fillRect(0, 0, cv.width, cv.height);
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
   for (let y = Math.floor(cy); y < Math.min(H, cy + VIEW_H + 1); y++)
@@ -694,6 +722,7 @@ function draw() {
       const c = MAP[y][x], px = (x - cx) * T, py = (y - cy) * T;
       ctx.fillStyle = c === "," && me.f === 4 ? "#3b4651" : TILE[c] ?? (/\d/.test(c) ? "#2b3a55" : (x + y) % 2 ? "#2a2438" : "#2e283d"); // 4층 , = 옥상
       ctx.fillRect(px, py, T + 0.5, T + 0.5);
+      if ("CKRVWX".includes(c)) { ctx.fillStyle = "#ffffff30"; for (let k = 1; k < 4; k++) ctx.fillRect(px, py + k * T / 4, T, Math.max(1, T / 16)); } // 계단 단(줄무늬)
       const icon = ICON[c] ?? (LOCKS.includes(c) ? (progress.keys?.[c] ? "🚪" : c === "r" ? "🔐" : "🔒")
         : /\d/.test(c) ? (solved(floorPz()[+c - 1]?.id) ? "✅" : "🔍") : "");
       if (icon) { ctx.font = `${T * 0.6}px sans-serif`; ctx.fillText(icon, px + T / 2, py + T / 2); }
@@ -718,7 +747,7 @@ function draw() {
   ctx.font = `${T * 0.6}px sans-serif`; // 바닥에 떨어진 물건
   for (const [id, v] of Object.entries(items)) if (v && !v.by && v.f === me.f && see(v.x, v.y)) ctx.fillText(ITEM[id].split(" ")[0], (v.x - cx) * T + T / 2, (v.y - cy) * T + T / 2);
   const tw = performance.now() / 300; // ✨ 반짝임: 칸마다 박자를 조금씩 다르게
-  ctx.font = `${T * 0.5}px sans-serif`;
+  ctx.font = `${T * 0.38}px sans-serif`; // 작게 반짝임(책상·칠판 위)
   for (const c of mySparkles()) {
     if (!see(c.x, c.y)) continue;
     ctx.globalAlpha = 0.55 + 0.45 * Math.sin(tw + c.x * 1.7 + c.y);
@@ -735,17 +764,16 @@ function draw() {
   }
   if (monSeen) {
     const px = (monR.x - cx) * T + T / 2, py = (monR.y - cy) * T + T / 2;
-    ctx.beginPath(); ctx.arc(px, py, T * 0.48, 0, Math.PI * 2); ctx.fillStyle = mon?.tid ? "#c0262690" : "#6a4a9a90"; ctx.fill(); // 추격 빨강, 순찰 보라
-    ctx.font = `${T * 0.72}px sans-serif`; ctx.fillStyle = "#fff";
-    ctx.fillText("👨‍🔬", px, py + 1);
+    ctx.beginPath(); ctx.ellipse(px, py + T * 0.38, T * 0.45, T * 0.14, 0, 0, Math.PI * 2); ctx.fillStyle = mon?.tid ? "#ff2a2acc" : "#a07ae0aa"; ctx.fill(); // 발밑: 추격 빨강, 순찰 보라
+    ctx.drawImage(sprite("teacher", monR.d, walkFrame(monR, monR.tx, monR.ty)), px - T * 0.6, py - T * 0.75, T * 1.2, T * 1.2);
     if (mon.say) { // 말풍선
       ctx.font = `bold ${Math.max(11, T * 0.36)}px sans-serif`; const w = ctx.measureText(mon.say).width + 12, by = Math.max(T * 0.4, py - T * 0.95);
       ctx.fillStyle = "#fff"; ctx.fillRect(px - w / 2, by - T * 0.25, w, T * 0.5); ctx.fillStyle = "#c02626"; ctx.fillText(mon.say, px, by);
     }
   }
   const others = Object.entries(mates).filter(([id, m]) => id !== me.uid && m.online && sameFloor(m) && m.rx != null && see(m.x, m.y));
-  for (const [, m] of others) drawChar(m.rx, m.ry, m.avatar, m.nick + (m.jail ? " 🔒" : ""), cx, cy, false);
-  drawChar(me.rx, me.ry, me.avatar, me.nick, cx, cy, true);
+  for (const [, m] of others) drawChar(m, m.avatar, m.nick + (m.jail ? " 🔒" : ""), cx, cy, false);
+  drawChar(me, me.avatar, me.nick, cx, cy, true);
   if (DARK.includes(me.f)) { // 어둠: 내 바로 옆(1.5칸)과 손전등 빛(3칸)만 보임
     const lit = [{ x: me.rx, y: me.ry, r: 1.5 }, ...lights().map(l => ({ ...l, r: LIGHT_R + 0.5 }))];
     for (let y = Math.floor(cy); y < Math.min(H, cy + VIEW_H + 1); y++)
@@ -755,12 +783,14 @@ function draw() {
       }
   }
 }
-function drawChar(x, y, av, nick, cx, cy, mine) {
-  const px = (x - cx) * T + T / 2, py = (y - cy) * T + T / 2;
-  ctx.beginPath(); ctx.arc(px, py, T * 0.46, 0, Math.PI * 2);
-  ctx.fillStyle = mine ? "#ff7a3d55" : "#ffffff22"; ctx.fill();
+const WALK_MS = 160; // 걸음 모션 한 박자
+// 화면 위치가 목표 칸을 따라가는 중이면 걸음(1·2 번갈아), 아니면 서 있기(0)
+const walkFrame = (o, x, y) => Math.abs(o.rx - x) + Math.abs(o.ry - y) > 0.02 ? 1 + Math.floor(performance.now() / WALK_MS) % 2 : 0;
+function drawChar(o, av, nick, cx, cy, mine) {
+  const px = (o.rx - cx) * T + T / 2, py = (o.ry - cy) * T + T / 2;
+  if (mine) { ctx.beginPath(); ctx.ellipse(px, py + T * 0.4, T * 0.42, T * 0.13, 0, 0, Math.PI * 2); ctx.fillStyle = "#ff7a3d99"; ctx.fill(); } // 내 캐릭터 발밑 표시
+  ctx.drawImage(sprite(av ?? 0, o.d || "d", walkFrame(o, o.x, o.y)), px - T / 2, py - T * 0.55, T, T);
   ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = "#fff";
-  ctx.font = `${T * 0.7}px sans-serif`; ctx.fillText(AVATARS[av] ?? "❔", px, py + 1);
   ctx.font = `bold ${Math.max(10, T * 0.32)}px sans-serif`;
   ctx.fillText(nick, px, py - T * 0.62 < 8 ? py + T * 0.62 : py - T * 0.62); // 맨 윗줄이면 이름표를 아래에
 }
