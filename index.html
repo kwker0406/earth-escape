@@ -594,7 +594,7 @@ function resize() {
   const land = document.body.classList.contains("land");
   if (land) { VIEW_H = 8; T = Math.ceil(box.height / VIEW_H); VIEW_W = Math.ceil(box.width / T); } // 가로: 세로 8칸에 맞추고 화면 너비를 꽉 채움
   else { VIEW_W = 10; T = Math.ceil(box.width / VIEW_W); VIEW_H = Math.ceil(box.height / T); } // 세로: 가로 10칸에 맞추고 화면 높이를 꽉 채움
-  const dpr = devicePixelRatio || 1;
+  const dpr = Math.min(2, devicePixelRatio || 1); // 3배 화면도 2배로 그림(도트라 차이가 거의 없고 그릴 점이 절반 이하)
   cv.style.width = T * VIEW_W + "px"; cv.style.height = T * VIEW_H + "px";
   cv.width = T * VIEW_W * dpr; cv.height = T * VIEW_H * dpr;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0); drawKey = "";
@@ -752,15 +752,16 @@ function regions(map) {
 function seer() { // (x, y)가 지금 보이는지
   const id = regions(MAP), W = MAP[0].length, mine = new Set();
   for (const [dx, dy] of [[0, 0], ...D4]) { const r = id[(me.y + dy) * W + me.x + dx]; if (r >= 0 && (!dx && !dy || "+Gabcr".includes(MAP[me.y][me.x]))) mine.add(r); }
-  return (x, y) => { const r = id[y * W + x]; if (r >= 0) return mine.has(r);
+  const see = (x, y) => { const r = id[y * W + x]; if (r >= 0) return mine.has(r);
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (mine.has(id[(y + dy) * W + x + dx]) && MAP[y + dy]?.[x + dx]) return true; return false; };
+  see.sig = [...mine].join(); return see; // sig: 보이는 구역이 바뀌었는지 알아보는 표시
 }
-function draw() {
-  const W = MAP[0].length, H = MAP.length, see = seer();
-  const cx = Math.max(0, Math.min(W - VIEW_W, me.rx - (VIEW_W - 1) / 2));
-  const cy = Math.max(0, Math.min(H - VIEW_H, me.ry - (VIEW_H - 1) / 2));
-  ctx.imageSmoothingEnabled = false; // 도트가 번지지 않게(캔버스 크기가 바뀌면 초기화되므로 매번)
-  ctx.fillStyle = "#05040a"; ctx.fillRect(0, 0, cv.width, cv.height);
+const bg = { key: "", cv: document.createElement("canvas") };
+function paintBg(cx, cy, see, dpr) {
+  const W = MAP[0].length, H = MAP.length, cvb = bg.cv;
+  const w = (VIEW_W + 2) * T * dpr, h = (VIEW_H + 2) * T * dpr;
+  if (cvb.width !== w || cvb.height !== h) { cvb.width = w; cvb.height = h; } else cvb.getContext("2d").clearRect(0, 0, w, h);
+  const ctx = cvb.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.imageSmoothingEnabled = false;
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
   for (let y = Math.floor(cy); y < Math.min(H, cy + VIEW_H + 1); y++)
     for (let x = Math.floor(cx); x < Math.min(W, cx + VIEW_W + 1); x++) {
@@ -788,6 +789,19 @@ function draw() {
     ctx.fillStyle = "#e8dcc0"; ctx.fillRect(px - w / 2, py - T * 0.22, w, T * 0.44);
     ctx.fillStyle = "#3a2a1a"; ctx.fillText(r.name, px, py + 1);
   }
+}
+function draw() {
+  const W = MAP[0].length, H = MAP.length, see = seer();
+  const cx = Math.max(0, Math.min(W - VIEW_W, me.rx - (VIEW_W - 1) / 2));
+  const cy = Math.max(0, Math.min(H - VIEW_H, me.ry - (VIEW_H - 1) / 2));
+  ctx.imageSmoothingEnabled = false; // 도트가 번지지 않게(캔버스 크기가 바뀌면 초기화되므로 매번)
+  ctx.fillStyle = "#05040a"; ctx.fillRect(0, 0, cv.width, cv.height);
+  // 바닥·벽·가구·명패·초록 칸은 따로 한 장에 그려 두고, 카메라가 한 칸 넘어가거나 보이는 구역·문·퍼즐 상태가 바뀔 때만 다시 그림
+  const fx = Math.floor(cx), fy = Math.floor(cy), dpr = Math.min(2, devicePixelRatio || 1);
+  const bk = [me.f, fx, fy, T, VIEW_W, VIEW_H, dpr, see.sig, JSON.stringify(progress.keys ?? {}), JSON.stringify(progress.solved ?? {})].join("|");
+  if (bg.key !== bk) { bg.key = bk; paintBg(fx, fy, see, dpr); }
+  ctx.drawImage(bg.cv, Math.round((fx - cx) * T), Math.round((fy - cy) * T), bg.cv.width / dpr, bg.cv.height / dpr);
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
   ctx.font = `${T * 0.6}px sans-serif`; // 바닥에 떨어진 물건
   for (const [id, v] of Object.entries(items)) if (v && !v.by && v.f === me.f && see(v.x, v.y)) ctx.fillText(ITEM[id].split(" ")[0], (v.x - cx) * T + T / 2, (v.y - cy) * T + T / 2);
   const tw = performance.now() / 300; // ✨ 반짝임: 칸마다 박자를 조금씩 다르게
