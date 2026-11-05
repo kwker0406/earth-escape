@@ -64,19 +64,29 @@
   #pad .u { left:54px; top:4px; } #pad .d { left:54px; bottom:4px; } #pad .l { left:4px; top:54px; } #pad .r { right:4px; top:54px; }
   #pad span.on { background:var(--hot); color:#fff; }
   #team { list-style:none; margin:0; padding:0; font-size:14px; display:flex; flex-direction:column; gap:6px; max-width:45%; }
-  #team li { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #team li span:first-child { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   #team li.off { opacity:.4; }
 
-  /* 가로 화면: 조작판을 지도 아래가 아니라 지도 양옆(왼쪽 아래 방향키, 오른쪽 팀원)에 겹쳐 둔다 */
-  body.land #panel { position:absolute; left:0; right:0; bottom:0; height:auto; background:none; border:0; pointer-events:none;
-    padding: 0 max(16px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); align-items:flex-end; }
-  body.land #pad { pointer-events:auto; width:140px; height:140px; }
-  body.land #pad .u { left:44px; } body.land #pad .d { left:44px; } body.land #pad .l, body.land #pad .r { top:44px; }
-  body.land #team { text-shadow:0 1px 3px #000; }
-  body.land #side { max-width:30%; }
-  body.land #pad { opacity:.75; }
-  body.land #hud { position:absolute; left:0; right:0; top:0; z-index:2; pointer-events:none; text-shadow:0 1px 3px #000; }
-  body.land #hud > * { pointer-events:auto; }
+  /* 세로·가로 모두: 지도가 화면 전체. 그 위에 왼쪽 아래 방향키(반투명), 오른쪽 아래 조사·단서, 오른쪽 위 접속자 명단, 왼쪽 위 층·시간 */
+  #mapbox { position:absolute; inset:0; overflow:hidden; }
+  canvas { border-radius:0; }
+  #panel { position:absolute; inset:0; height:auto; background:none; border:0; pointer-events:none; padding:0; }
+  #side { display:contents; }
+  #pad { position:absolute; left:max(16px, env(safe-area-inset-left)); bottom:max(12px, env(safe-area-inset-bottom));
+    pointer-events:auto; width:140px; height:140px; opacity:.55; }
+  #pad .u { left:44px; } #pad .d { left:44px; } #pad .l, #pad .r { top:44px; }
+  #acts { position:absolute; right:max(16px, env(safe-area-inset-right)); bottom:max(14px, env(safe-area-inset-bottom)); pointer-events:auto; }
+  #team { position:absolute; right:max(12px, env(safe-area-inset-right)); top:max(8px, env(safe-area-inset-top)); max-width:34%;
+    padding:6px 10px; border-radius:10px; background:#0d0b14aa; text-shadow:0 1px 2px #000; gap:3px; font-size:13px; }
+  #hud { position:absolute; left:0; top:0; z-index:2; justify-content:flex-start; gap:10px; pointer-events:none;
+    padding: max(8px, env(safe-area-inset-top)) 14px 8px max(14px, env(safe-area-inset-left)); text-shadow:0 1px 3px #000; }
+  #hud > * { pointer-events:auto; }
+  #alert { top:44px; }
+  body:not(.land) #team { max-width:46%; }
+  body:not(.land) #alert { left:max(12px, env(safe-area-inset-left)); transform:none; max-width:48%; top:52px; font-size:14px; } /* 세로: 명단(오른쪽 위)과 안 겹치게 왼쪽 */
+  body:not(.land) #pad { width:150px; height:150px; } body:not(.land) #pad .u, body:not(.land) #pad .d { left:49px; } body:not(.land) #pad .l, body:not(.land) #pad .r { top:49px; }
+  #team li { display:flex; gap:6px; justify-content:space-between; }
+  #team li .st { flex:none; }
   /* 조사·단서 버튼과 퍼즐·단서·엔딩 창 */
   .dials { display:flex; gap:8px; justify-content:center; }
   .wheel { display:flex; flex-direction:column; align-items:center; gap:4px; }
@@ -155,10 +165,11 @@ import { phaseAt, spawnTile, stepToward, nextTarget, patrolStep, sightTiles, hos
   HIDE_WARN_MS, HIDE_MAX_MS, HIDE_COOLDOWN_MS, PLAYER_STEP_MS, CHASE_MS, SEEK_DIST, seekStep, doorWait } from "./monsters.js";
 import { JAIL_QUESTIONS } from "./questions.js";
 import { CHARS, sprite } from "./sprites.js";
+import { drawTile } from "./tiles.js";
 import { buildPuzzles, check, clueSpots, clueOwner, dropSpot, scatter, FLOOR_NAMES, MONSTER_FLOORS, ROLL } from "./puzzles.js";
 
 const AVATARS = CHARS.map(c => c.emoji); // 글자 목록용(팀 목록·결과)
-let VIEW_W = 10, VIEW_H = 12; // 세로 10×12칸, 가로 14×8칸(보이는 칸 수를 비슷하게 맞춤)
+let VIEW_W = 10, VIEW_H = 12; // resize()가 화면에 맞춰 다시 정함: 세로는 가로 10칸, 가로는 세로 8칸 기준
 const STEP_MS = PLAYER_STEP_MS; // 괴물 속도(10% 빠름)의 기준이라 monsters.js 값을 씀
 const DIRS = { u:[0,-1], d:[0,1], l:[-1,0], r:[1,0] };
 const D4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
@@ -368,10 +379,13 @@ function escapeJail() { // 보충실 문 바로 앞 복도로 나감
 
 let teamSig = "";
 function drawTeam() { // 팀원이 한 칸 움직일 때마다 불리므로, 이름·접속·층·보충실 상태가 바뀔 때만 다시 그림
-  const sig = JSON.stringify(Object.entries(mates).map(([id, m]) => [id, m.nick, m.avatar, m.online, !!m.jail, m.f]));
+  const hid = m => MAPS[m.f ?? 1]?.[m.y]?.[m.x] === "H"; // 사물함에 숨음
+  const sig = JSON.stringify(Object.entries(mates).map(([id, m]) => [id, m.nick, m.avatar, m.online, !!m.jail, m.f, hid(m)]));
   if (sig === teamSig) return; teamSig = sig;
   $("team").replaceChildren(...Object.entries(mates).map(([id, m]) => {
-    const li = el("li", { textContent: `${AVATARS[m.avatar] ?? "❔"} ${m.nick}${id === me.uid ? " (나)" : ""}${m.jail ? " 🔒" : ""}` });
+    const st = !m.online ? "💤" : m.jail ? "🔒" : hid(m) ? "🫣" : ""; // 접속 끊김·보충실 감금·숨음
+    const li = el("li", {}, el("span", { textContent: `${AVATARS[m.avatar] ?? "❔"} ${m.nick}${id === me.uid ? " (나)" : ""}` }),
+      el("span", { className: "st", textContent: st, title: { "💤": "접속 끊김", "🔒": "보충수업실에 감금", "🫣": "사물함에 숨음" }[st] ?? "" }));
     if (!m.online) li.classList.add("off");
     return li;
   }));
@@ -542,8 +556,8 @@ function resize() {
   const box = $("mapbox").getBoundingClientRect();
   if (box.width < 50 || box.height < 50) return; // 회전 도중의 임시 크기는 무시(0이 되면 지도가 사라짐)
   const land = document.body.classList.contains("land");
-  VIEW_W = land ? 14 : 10; VIEW_H = land ? 8 : 12;
-  T = Math.floor(Math.min((box.width - 16) / VIEW_W, (box.height - 8) / VIEW_H));
+  if (land) { VIEW_H = 8; T = Math.ceil(box.height / VIEW_H); VIEW_W = Math.ceil(box.width / T); } // 가로: 세로 8칸에 맞추고 화면 너비를 꽉 채움
+  else { VIEW_W = 10; T = Math.ceil(box.width / VIEW_W); VIEW_H = Math.ceil(box.height / T); } // 세로: 가로 10칸에 맞추고 화면 높이를 꽉 채움
   const dpr = devicePixelRatio || 1;
   cv.style.width = T * VIEW_W + "px"; cv.style.height = T * VIEW_H + "px";
   cv.width = T * VIEW_W * dpr; cv.height = T * VIEW_H * dpr;
@@ -705,10 +719,6 @@ function seer() { // (x, y)가 지금 보이는지
   return (x, y) => { const r = id[y * W + x]; if (r >= 0) return mine.has(r);
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (mine.has(id[(y + dy) * W + x + dx]) && MAP[y + dy]?.[x + dx]) return true; return false; };
 }
-const TILE = { "#": "#3a3150", "+": "#5a4630", G: "#7a2a2a", j: "#3a2228", H: "#4a3b2c", a: "#6a3a2a", b: "#6a3a2a", c: "#6a3a2a", r: "#6a3a2a",
-  C: "#2f4f6b", K: "#2f4f6b", R: "#2f4f6b", V: "#3f3f6b", W: "#3f3f6b", X: "#3f3f6b", Y: "#3b3b55", ",": "#2c2838",
-  B: "#2f5a3c", T: "#7a5230", D: "#8a6a44", L: "#4a5266" }; // 칠판·교탁·책상·교실 사물함
-const ICON = { C: "🔼", K: "🔼", R: "🔼", V: "🔽", W: "🔽", X: "🔽", Y: "🛗", H: "🗄️", G: "🚪", S: "🏫" };
 function draw() {
   const W = MAP[0].length, H = MAP.length, see = seer();
   const cx = Math.max(0, Math.min(W - VIEW_W, me.rx - (VIEW_W - 1) / 2));
@@ -719,11 +729,9 @@ function draw() {
   for (let y = Math.floor(cy); y < Math.min(H, cy + VIEW_H + 1); y++)
     for (let x = Math.floor(cx); x < Math.min(W, cx + VIEW_W + 1); x++) {
       if (!see(x, y)) continue;
-      const c = MAP[y][x], px = (x - cx) * T, py = (y - cy) * T;
-      ctx.fillStyle = c === "," && me.f === 4 ? "#3b4651" : TILE[c] ?? (/\d/.test(c) ? "#2b3a55" : (x + y) % 2 ? "#2a2438" : "#2e283d"); // 4층 , = 옥상
-      ctx.fillRect(px, py, T + 0.5, T + 0.5);
-      if ("CKRVWX".includes(c)) { ctx.fillStyle = "#ffffff30"; for (let k = 1; k < 4; k++) ctx.fillRect(px, py + k * T / 4, T, Math.max(1, T / 16)); } // 계단 단(줄무늬)
-      const icon = ICON[c] ?? (LOCKS.includes(c) ? (progress.keys?.[c] ? "🚪" : c === "r" ? "🔐" : "🔒")
+      const c = MAP[y][x], px = Math.round((x - cx) * T), py = Math.round((y - cy) * T);
+      drawTile(ctx, MAP, me.f, x, y, px, py, T); // 도트 타일(tiles.js)
+      const icon = (LOCKS.includes(c) ? (progress.keys?.[c] ? "" : c === "r" ? "🔐" : "🔒")
         : /\d/.test(c) ? (solved(floorPz()[+c - 1]?.id) ? "✅" : "🔍") : "");
       if (icon) { ctx.font = `${T * 0.6}px sans-serif`; ctx.fillText(icon, px + T / 2, py + T / 2); }
     }
@@ -771,9 +779,10 @@ function draw() {
       ctx.fillStyle = "#fff"; ctx.fillRect(px - w / 2, by - T * 0.25, w, T * 0.5); ctx.fillStyle = "#c02626"; ctx.fillText(mon.say, px, by);
     }
   }
-  const others = Object.entries(mates).filter(([id, m]) => id !== me.uid && m.online && sameFloor(m) && m.rx != null && see(m.x, m.y));
+  const inLocker = o => MAP[o.y]?.[o.x] === "H" && Math.abs(o.rx - o.x) + Math.abs(o.ry - o.y) < 0.3; // 사물함 속(다 들어가면 안 보임)
+  const others = Object.entries(mates).filter(([id, m]) => id !== me.uid && m.online && sameFloor(m) && m.rx != null && see(m.x, m.y) && !inLocker(m));
   for (const [, m] of others) drawChar(m, m.avatar, m.nick + (m.jail ? " 🔒" : ""), cx, cy, false);
-  drawChar(me, me.avatar, me.nick, cx, cy, true);
+  if (!inLocker(me)) drawChar(me, me.avatar, me.nick, cx, cy, true);
   if (DARK.includes(me.f)) { // 어둠: 내 바로 옆(1.5칸)과 손전등 빛(3칸)만 보임
     const lit = [{ x: me.rx, y: me.ry, r: 1.5 }, ...lights().map(l => ({ ...l, r: LIGHT_R + 0.5 }))];
     for (let y = Math.floor(cy); y < Math.min(H, cy + VIEW_H + 1); y++)
@@ -781,6 +790,12 @@ function draw() {
         const d = Math.min(...lit.map(l => Math.hypot(l.x - x, l.y - y) / l.r));
         if (d > 0.7) { ctx.fillStyle = `rgba(5, 4, 10, ${Math.min(0.96, (d - 0.7) * 2.4)})`; ctx.fillRect((x - cx) * T, (y - cy) * T, T + 0.5, T + 0.5); }
       }
+  }  if (inLocker(me)) { // 사물함 속: 문틈으로 보듯 화면 가장자리를 어둡게
+    const w = T * VIEW_W, h = T * VIEW_H, px = (me.rx - cx) * T + T / 2, py = (me.ry - cy) * T + T / 2;
+    const gr = ctx.createRadialGradient(px, py, T * 1.2, px, py, T * 3.6);
+    gr.addColorStop(0, "rgba(0,0,0,0)"); gr.addColorStop(1, "rgba(0,0,0,0.93)");
+    ctx.fillStyle = gr; ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = "rgba(0,0,0,0.5)"; for (let k = -2; k <= 2; k++) ctx.fillRect(0, py + k * T * 0.18 - 1, w, 2); // 통풍구 틈
   }
 }
 const WALK_MS = 160; // 걸음 모션 한 박자
