@@ -2,11 +2,17 @@
 import config from "./config.js";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
 import { getAuth, signInAnonymously, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
-import { getDatabase, ref, set, get, update, push, onValue, onDisconnect, runTransaction } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js";
+import { getDatabase, ref, set as fbSet, get, update as fbUpdate, push, onValue, onDisconnect, runTransaction as fbTx } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js";
 
 const auth = getAuth(initializeApp(config));
 const db = getDatabase();
 const R = p => ref(db, p);
+// 선생님이 '처음부터 다시'를 누르면 학생 기기는 지우는 동안 아무것도 쓰지 않음(옛 게임 기록이 되살아나지 않게)
+let frozen = false;
+export const freeze = () => { frozen = true; };
+const set = (...a) => frozen ? Promise.resolve() : fbSet(...a);
+const update = (...a) => frozen ? Promise.resolve() : fbUpdate(...a);
+const runTransaction = (...a) => frozen ? Promise.resolve({ committed: false, snapshot: { val: () => null } }) : fbTx(...a);
 let uid, sid, team, memberRef;
 
 let offset = 0; // 기기 시계가 틀려도 모두 같은 시각을 쓰도록 서버 시각 기준
@@ -134,7 +140,7 @@ export async function createClass(name, teamCount, maxMembers, minutes, jailSec)
     up[`codes/${code}`] = id;
     for (let s = 1; s <= maxMembers; s++) up[`sessions/${id}/teams/${code}/slots/s${s}`] = false;
   }
-  up[`sessions/${id}/meta`] = { name, state: "wait", remain: minutes * 60000, maxMembers, teams, jailSec,
+  up[`sessions/${id}/meta`] = { name, state: "wait", remain: minutes * 60000, minutes, maxMembers, teams, jailSec,
     seed: Math.floor(Math.random() * 1e9), playedMs: 0 };
   up[`classes/${id}`] = { name, createdAt: serverNow() };
   await update(R("/"), up);
@@ -164,8 +170,30 @@ export async function control(id, action) {
     action === "start" ? { state: "play", endsAt: now + Math.max(0, left), startedAt: now, playedMs: played } :
     action === "pause" ? { state: "pause", remain: Math.max(0, left), playedMs: played } :
     action === "end"   ? { state: "end", remain: 0, playedMs: played } :
-    /* plus5 */ m.state === "play" ? { endsAt: Math.max(now, m.endsAt) + 300000 } : { remain: Math.max(0, m.remain) + 300000 };
+    // 시간 추가(plus5·plus10): 진행 중이면 끝나는 시각을 늦춤. 끝난 반이면 '일시정지'로 되돌려 ▶ 시작으로 이어서 하게 함
+    m.state === "play" ? { endsAt: Math.max(now, m.endsAt) + addMs(action) }
+    : { remain: Math.max(0, m.remain || 0) + addMs(action), ...(m.state === "end" ? { state: "pause" } : {}) };
   await update(R(`sessions/${id}/meta`), change);
+}
+
+const addMs = action => (action === "plus10" ? 10 : 5) * 60000;
+
+// 처음부터 다시: 팀 진행·단서·물건·괴물·위치·보충 기록을 지우고 시작 전으로. 팀 코드와 자리(접속한 학생)는 그대로, 퍼즐 정답은 새로(seed)
+// 순서: ① 시작 전으로 + resetting 표시 → 학생 기기가 쓰기를 멈춤 ② 2초 뒤 팀 기록 지움 ③ 표시를 지우면 학생 기기가 새로고침해 새 게임으로
+export async function resetClass(id) {
+  const m = (await get(R(`sessions/${id}/meta`))).val();
+  await update(R(`sessions/${id}/meta`), { state: "wait", remain: (m.minutes || 40) * 60000, playedMs: 0, seed: Math.floor(Math.random() * 1e9),
+    endsAt: null, startedAt: null, resetting: true });
+  await new Promise(ok => setTimeout(ok, 2000));
+  const up = {};
+  for (const code in m.teams || {}) {
+    const t = `sessions/${id}/teams/${code}`;
+    for (const k of ["progress", "got", "items", "monster", "rescue", "hint", "pos"]) up[`${t}/${k}`] = null;
+    const members = (await get(R(`${t}/members`))).val() || {};
+    for (const kid in members) up[`${t}/members/${kid}/caught`] = null;
+  }
+  await update(R("/"), up);
+  await update(R(`sessions/${id}/meta`), { resetting: null });
 }
 
 // 내보내기: 자리를 비우고, 같은 기기로는 다시 못 들어오게 표시(다시 받아 줄 때 알아보도록 닉네임을 남김)

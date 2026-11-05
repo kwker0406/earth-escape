@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>과학실의 그림자: 보충의 밤</title>
+
 <style>
   :root { --bg:#16131f; --panel:#221d30; --line:#3a3150; --text:#f3eefc; --dim:#a79cc0; --hot:#ff7a3d; --ok:#5ad19a; }
   /* 화면이 끌려가지 않게: 고정 + 스크롤·확대·당겨서 새로고침·글자 선택 차단 */
@@ -119,6 +120,16 @@
   .modal .hint { color:#ffd98a; font-size:15px; margin:0; }
   .card { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:10px 12px; font-size:15px; line-height:1.5; }
   .card small { color:var(--dim); display:block; }
+  /* 칠판 손글씨: 개구(Gaegu) 굵은체를 게임 폴더에 함께 둠(fonts/, 자주 쓰는 한글 2350자만 → 약 470KB, 칠판을 열 때 받음). 글꼴 저작권: fonts/Gaegu-OFL.txt */
+  @font-face { font-family:"Gaegu"; src:url("fonts/gaegu-chalk.woff2") format("woff2"); font-weight:700; font-display:swap; }
+  .board { background:#1f3d2c; border:10px solid #7a5230; border-bottom-width:16px; border-radius:6px; padding:14px 18px; min-height:170px;
+    box-shadow: inset 0 0 40px #000a, 0 6px 14px #0008; color:#f2f6f0; font-family:"Gaegu","Chalkboard SE","Comic Sans MS",cursive; font-weight:700; font-size:25px; line-height:1.45; letter-spacing:.5px;
+    text-shadow: 0 0 1px #fff8, 1px 1px 0 #ffffff22, 0 0 6px #ffffff33; }  /* 분필 번짐: 살짝만(가독성 우선) */
+  .board p { margin:0 0 8px; transform-origin:left center; word-break:keep-all; } /* 낱말 중간에서 줄 바꾸지 않음 */
+  .board p:nth-child(1) { font-size:19px; opacity:.8; transform:rotate(-.6deg); }
+  .board p:nth-child(2) { transform:rotate(.5deg); text-decoration:underline; text-decoration-color:#ffffff66; text-underline-offset:5px; }
+  .board p:nth-child(3) { transform:rotate(-.8deg) translateX(6px); }
+  .board .clue { color:#ffe27a; font-size:27px; transform:rotate(.4deg); text-shadow: 0 0 1px #ffe27a99, 0 0 7px #ffe27a44; }
   #end { background:#0f1a14f5; text-align:center; align-items:center; justify-content:center; }
 </style>
 </head>
@@ -194,6 +205,7 @@ const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.crea
 const checkRotate = () => document.body.classList.toggle("land",
   (screen.orientation?.type ?? "").startsWith("landscape") || Math.abs(window.orientation ?? 0) === 90);
 addEventListener("resize", checkRotate); addEventListener("orientationchange", checkRotate); checkRotate();
+let resetWait = false; // 새 게임으로 바뀌는 중
 let avatar = 0, me = null, mates = {}, dir = null, lastStep = 0, meta = { state: "wait" };
 let mon = null, monR = null, grace = 0, quiz = null; // mon: 서버의 괴물, quiz: { i: 문제 번호, lock: 다시 풀 수 있는 시각 }
 let drawKey = "", hideMs = 0, lastT = 0, mStep = 0, mTarget = null, hideBlockUntil = 0;
@@ -210,6 +222,7 @@ $("avatars").children[0].classList.add("sel");
 let saved = null;
 try { saved = JSON.parse(localStorage.getItem("escape-profile")); } catch {}
 if (saved) { $("code").value = saved.code || ""; $("nick").value = saved.nick; $("avatars").children[saved.avatar]?.click(); }
+try { if (saved && sessionStorage.rejoin) { delete sessionStorage.rejoin; setTimeout(() => $("go").click(), 0); } } catch {} // 새 게임으로 바뀌면 자동으로 다시 입장
 try { $("msg").textContent = sessionStorage.getItem("escape-msg") || ""; sessionStorage.removeItem("escape-msg"); } catch {}
 const ERRORS = { NOCODE: "없는 방 코드예요. 선생님께 다시 확인하세요.", FULL: "이 팀은 자리가 다 찼어요. 선생님께 말씀하세요.",
   KICKED: "선생님이 이 기기를 내보냈어요. 선생님께 말씀하세요." };
@@ -225,6 +238,7 @@ $("go").onclick = async () => {
   try {
     const { uid, last } = await net.join(code, nick, avatar);
     try { localStorage.setItem("escape-profile", JSON.stringify({ code, nick, avatar })); } catch {}
+    document.fonts?.load('700 20px "Gaegu"').catch(() => {}); // 칠판 글꼴을 미리 조용히 받아 둠
     const f = last?.f ?? 1; MAP = MAPS[f];
     me = { uid, code, nick, avatar, f, ...(last && (walkable(last.x, last.y) || last.jail) ? last : arrival(MAP, null)), d: "d" };
     me.f = f; me.rx = me.x; me.ry = me.y; me.jail ||= 0; me.seen ||= 0;
@@ -232,7 +246,13 @@ $("go").onclick = async () => {
     try { ({ hideMs = 0, hideBlockUntil = 0 } = JSON.parse(localStorage.getItem("escape-hide-" + uid + code)) || {}); } catch {}
     save();
     net.onTeam(t => { for (const id in t) if (mates[id]) Object.assign(t[id], { rx: mates[id].rx, ry: mates[id].ry }); mates = t; drawTeam(); if ($("bag").classList.contains("on")) renderBag(); });
-    net.onMeta(m => { meta = m; if (!PZ && m.seed != null && m.teams?.[code]) PZ = buildPuzzles(m.seed, code, m.teams[code]); });
+    net.onMeta(m => {
+      // 선생님이 '처음부터 다시'를 누름 → 쓰기를 멈추고, 선생님 쪽 지우기가 끝나면(resetting 해제) 새로고침해 새 게임으로
+      if (PZ && m.seed != null && meta.seed != null && m.seed !== meta.seed && !resetWait) {
+        resetWait = true; net.freeze(); setTimeout(() => location.reload(), 8000); try { sessionStorage.rejoin = 1; } catch {}
+      }
+      if (resetWait) { if (!m.resetting) location.reload(); return; }
+      meta = m; if (!PZ && m.seed != null && m.teams?.[code]) PZ = buildPuzzles(m.seed, code, m.teams[code]); });
     net.onMonster(m => { mon = m; });
     net.onProgress(p => onProgress(p));
     net.onRescue(r => { // 팀원이 보충실 문을 열어 줌
@@ -343,7 +363,7 @@ function tick() {
     : meta.state === "pause" ? "⏸ 잠깐 멈춤" : "🏁 게임 끝!";
   $("status").textContent = text; $("status").classList.toggle("on", !!text);
   const acts = actions(); $("actBtn").disabled = !acts.length; // 버튼 이름은 '조사' 그대로(할 일이 하나면 그 일을 바로)
-  $("actBtn").textContent = acts.length > 1 ? `🔍 조사 (${acts.length})` : acts[0]?.label.startsWith("🔓") ? "🔓 구출" : acts[0]?.label.startsWith("✋") ? "✋ 줍기" : acts[0]?.label.startsWith("📜") ? "📜 단서" : "🔍 조사";
+  $("actBtn").textContent = acts.length > 1 ? `🔍 조사 (${acts.length})` : acts[0]?.label.startsWith("🔓") ? "🔓 구출" : acts[0]?.label.startsWith("✋") ? "✋ 줍기" : acts[0]?.label.startsWith("📜") ? "📜 단서" : acts[0]?.label.startsWith("🧑‍🏫") ? "🧑‍🏫 칠판" : "🔍 조사";
   stairCheck(); jailTick();
   // 물건을 가진 학생이 나가거나 내보내지면 떨어뜨림(물건이 사라져 진행이 막히지 않게). 팀 목록을 받은 뒤에만
   if (mates[me.uid]) for (const [id, v] of Object.entries(items)) {
@@ -406,7 +426,9 @@ function actions() {
   for (const [id, v] of Object.entries(items)) if (v && !v.by && v.f === me.f && NEAR.some(([dx, dy]) => v.x === me.x + dx && v.y === me.y + dy))
     out.push({ label: `✋ ${ITEM[id]} 줍기`, run: () => { if (mine().length >= BAG_MAX) return toast("🎒 가방이 가득 찼어요(4칸). 하나를 내려놓고 주우세요", 2500);
       net.grabItem(id); toast(`${ITEM[id]}을(를) 주웠다!`, 2500); } });
-  const near = mySparkles().filter(c => NEAR.some(([dx, dy]) => c.x === me.x + dx && c.y === me.y + dy));
+  const B = NEAR.map(([dx, dy]) => [me.x + dx, me.y + dy]).find(([x, y]) => MAP[y]?.[x] === "B");
+  if (B) out.push({ label: "🧑‍🏫 칠판 보기", run: () => openBoard() });
+  const near = mySparkles().filter(c => MAP[c.y][c.x] !== "B" && NEAR.some(([dx, dy]) => c.x === me.x + dx && c.y === me.y + dy)); // 칠판 단서는 칠판 보기에서
   if (near.length) out.push({ label: `📜 단서 줍기${near.length > 1 ? ` (${near.length}장)` : ""}`, run: () => {
     for (const c of near) { got[c.key] = me.uid; net.pickClue(c.key); } toast("📜 단서를 주웠다! 🎒에서 확인하세요", 2500); } });
   if (D4.some(([dx, dy]) => MAP[me.y + dy]?.[me.x + dx] === "G") && Object.entries(mates).some(([id, m]) => id !== me.uid && m.online && m.jail && sameFloor(m)))
@@ -421,6 +443,20 @@ $("actBtn").onclick = () => {
     ...acts.map(a => el("button", { className: "opt", textContent: a.label, onclick: () => { closeModal(); a.run(); } })));
   $("pz").classList.add("on");
 };
+// 칠판 확대: 이 교실 칠판에 놓인 내 단서는 노란 분필로 보이고 그 자리에서 주워짐. 없으면 수업 글씨만
+const BOARD_LINES = ["숙제: 학습지 36~45쪽 풀어 오기", "기후 변화의 원인 3가지는?", "엘니뇨 ↔ 라니냐 비교하기", "온실 기체: CO₂, CH₄, N₂O …", "떠든 사람: (비어 있음)", "다음 시간 쪽지 시험!"];
+function openBoard() {
+  const id = regions(MAP), W = MAP[0].length, myR = id[me.y * W + me.x];
+  const room = (ROOMS[me.f] ?? []).find(rm => D4.some(([dx, dy]) => id[(rm.door[1] + dy) * W + rm.door[0] + dx] === myR))?.name ?? "교실";
+  const clues = mySparkles().filter(c => MAP[c.y][c.x] === "B" && id[c.y * W + c.x] === myR);
+  for (const c of clues) { got[c.key] = me.uid; net.pickClue(c.key); }
+  const d = new Date(net.serverNow()), h = [...room].reduce((t, ch) => t + ch.charCodeAt(0), me.f);
+  const lines = [`${d.getMonth() + 1}월 ${d.getDate()}일 (${"일월화수목금토"[d.getDay()]})  ${room}`, "통합과학 — 지구 환경의 변화", BOARD_LINES[h % BOARD_LINES.length]];
+  $("pz").replaceChildren(el("button", { className: "close", textContent: "닫기 ✕", onclick: closeModal }), el("h2", { textContent: `🧑‍🏫 ${room} 칠판` }),
+    el("div", { className: "board" }, ...lines.map(t => el("p", { textContent: t })), ...clues.map(c => el("p", { className: "clue", textContent: "✎ " + c.t }))),
+    el("p", { className: "sub", textContent: clues.length ? `📜 칠판에서 단서 ${clues.length}장을 찾았다! 🎒에 적어 두었어요` : "특별한 건 없어 보인다…" }));
+  $("pz").classList.add("on"); drawKey = "";
+}
 $("bagBtn").onclick = () => { renderBag(); $("bag").classList.add("on"); };
 function closeModal() { openPz = null; $("pz").classList.remove("on"); $("bag").classList.remove("on"); }
 let pairPick = { sel: null, made: [] }, feedback = null;

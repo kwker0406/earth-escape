@@ -100,6 +100,8 @@
           <button class="hot" data-act="start">▶ 시작</button>
           <button data-act="pause">⏸ 일시정지</button>
           <button data-act="plus5">+5분</button>
+          <button data-act="plus10">+10분</button>
+          <button id="reset">🔄 처음부터 다시</button>
           <button data-act="end">🏁 종료</button>
           <button class="bad" id="del">반 삭제(초기화)</button>
         </div>
@@ -165,6 +167,8 @@ $("newClass").onsubmit = async e => {
 };
 
 for (const b of $("controls").querySelectorAll("[data-act]")) b.onclick = () => net.control(current, b.dataset.act);
+$("reset").onclick = () => confirm(`'${data?.meta?.name}' 반을 처음부터 다시 할까요?\n팀 코드와 접속한 학생은 그대로 두고, 진행 상황·단서·보충 기록과 시간을 처음으로 되돌립니다. 퍼즐 정답도 새로 바뀝니다.`)
+  && net.resetClass(current);
 $("del").onclick = async () => {
   const name = data?.meta?.name;
   if (prompt(`'${name}' 반의 기록과 팀 코드를 모두 지웁니다.\n접속한 학생은 모두 첫 화면으로 돌아갑니다.\n지우려면 반 이름을 그대로 입력하세요.`) !== name) return;
