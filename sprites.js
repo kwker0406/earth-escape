@@ -1,14 +1,15 @@
-// 도트 캐릭터(32×32 픽셀, 직접 디자인한 동물 8종 + 48×48 보충쌤). 앞(d)·뒤(u)·옆(l·r) × 서 있기(0)·걸음(1·2).
+// 도트 캐릭터(32×32 픽셀, 직접 디자인한 학생 8명 + 48×48 보충쌤). 앞(d)·뒤(u)·옆(l·r) × 서 있기(0)·걸음(1·2).
 // 그림 파일 없이 코드로 점을 찍어 만들고, 한 번 만든 그림은 기억해 둔다(sprite).
+// 교복: 검은 머리 학생은 남색 블레이저 + 흰 셔츠, 금발 학생은 블레이저 없이 흰 셔츠. 여학생 붉은 리본 + 남색 치마, 남학생 붉은 넥타이 + 남색 바지
 export const CHARS = [
-  { name: "얼룩냥", emoji: "🐱", body: "#f4f1ea", dark: "#6b625a", belly: "#ffffff", ear: "pointy", mark: "patch" },
-  { name: "도토리곰", emoji: "🐻", body: "#b07a4a", dark: "#5a3a20", belly: "#e8c9a0", ear: "round", mark: "none" },
-  { name: "레몬토끼", emoji: "🐰", body: "#f6d96b", dark: "#8a6a10", belly: "#fff3c4", ear: "long", mark: "none" },
-  { name: "볼볼햄", emoji: "🐹", body: "#e9a35a", dark: "#7a4a18", belly: "#fff0dc", ear: "tiny", mark: "cheeks" },
-  { name: "줄무늬범", emoji: "🐯", body: "#f29b38", dark: "#5a2e08", belly: "#fff3e0", ear: "round", mark: "stripes" },
-  { name: "솜꼬리여우", emoji: "🦊", body: "#e2683a", dark: "#6a240c", belly: "#fff6ee", ear: "pointy", mark: "muzzle" },
-  { name: "목도리펭", emoji: "🐧", body: "#3b4a6b", dark: "#151c2c", belly: "#f2f2f2", ear: "none", mark: "scarf" },
-  { name: "별빛토끼", emoji: "⭐", body: "#b9a8f0", dark: "#4a3a8a", belly: "#efeaff", ear: "long", mark: "star" },
+  { name: "보브 안경", emoji: "👓", girl: 1, hair: "bob", color: "black", glasses: 1 },
+  { name: "긴 생머리", emoji: "👩", girl: 1, hair: "long", color: "black" },
+  { name: "땋은 머리", emoji: "👧", girl: 1, hair: "braid", color: "black" },
+  { name: "금발 생머리", emoji: "👱‍♀️", girl: 1, hair: "long", color: "blond" },
+  { name: "더벅머리 안경", emoji: "🤓", girl: 0, hair: "shaggy", color: "black", glasses: 1 },
+  { name: "파마머리", emoji: "👨‍🦱", girl: 0, hair: "perm", color: "black" },
+  { name: "스포츠머리", emoji: "👦", girl: 0, hair: "buzz", color: "black" },
+  { name: "금발 댄디컷", emoji: "👱‍♂️", girl: 0, hair: "dandy", color: "blond" },
 ];
 const PINK = "#f5a3b5", EYE = "#1b1b24", SHADOW = "rgba(0,0,0,0.28)";
 const cache = new Map();
@@ -21,41 +22,79 @@ function painter(ctx) {
   return { px, rect, oval, blob };
 }
 
-function animal(ctx, ch, dir, frame) {
-  const { px, rect, oval, blob } = painter(ctx), side = dir === "l" || dir === "r", hx = side ? 17 : 16;
+const HAIRC = { black: ["#1e1b24", "#3b3646"], blond: ["#e3b94e", "#f6dc8a"] }; // [기본, 윤기]
+const NAVY = "#25305c", NAVY_L = "#34427a", NAVY_D = "#18203f", SHIRT = "#f6f6f8", SHIRT_D = "#d6d9e0", RED = "#c62f35", RED_D = "#8e1f26";
+const SKIN = "#f3d0b0", SKIN_D = "#dcaa84", LINE = "#24222c";
+function student(ctx, ch, dir, frame) {
+  const { px, rect, oval, blob } = painter(ctx), side = dir === "l" || dir === "r", back = dir === "u";
+  const [H, HL] = HAIRC[ch.color], blazer = ch.color === "black", hx = side ? 17 : 16;
   oval(16, 30, 7, 1, SHADOW);
-  // 다리: 걸을 때 한쪽씩 1칸 들어 올림
+  // 다리: 걸을 때 한쪽씩 들고, 옆모습은 앞뒤로 벌림
   const lift = i => (frame === 1 && i === 0) || (frame === 2 && i === 1) ? 2 : 0;
-  const stride = i => side && frame ? (frame === 1) === (i === 0) ? 2 : -2 : 0; // 옆모습: 다리를 앞뒤로 벌림
-  const legs = side ? [12, 18] : [11, 18];
-  legs.forEach((x, i) => rect(x + stride(i), 26 - lift(i), 3, 3 + lift(i) / 2, ch.dark));
-  // 몸통과 배
-  blob(side ? 15 : 16, 22, side ? 6 : 7, 4, ch.body, ch.dark);
-  if (dir !== "u") oval(side ? 16 : 16, 23, side ? 3 : 4, 2, ch.belly);
-  if (side) blob(8, 21, 1, 1, ch.body, ch.dark); // 꼬리
-  if (dir === "u") blob(16, 24, 2, 1, ch.belly, ch.dark);
-  if (ch.mark === "scarf") rect(side ? 10 : 9, 18, side ? 12 : 15, 2, "#d83a3a");
-  // 귀
-  const ears = side ? [hx - 3] : [hx - 6, hx + 5];
-  for (const ex of ears) {
-    if (ch.ear === "round") { blob(ex, 6, 2, 2, ch.body, ch.dark); if (dir !== "u") px(ex, 6, PINK); }
-    if (ch.ear === "pointy") for (let k = 0; k < 4; k++) { rect(ex - 1 + (k >> 1), 3 + k, 3 - (k >> 1), 1, k === 0 ? ch.dark : ch.body); px(ex - 2 + (k >> 1), 3 + k, ch.dark); }
-    if (ch.ear === "long") { rect(ex - 2, -1, 4, 9, ch.dark); rect(ex - 1, 0, 2, 8, ch.body); if (dir !== "u") rect(ex - 1, 1, 1, 6, PINK); }
-    if (ch.ear === "tiny") blob(ex, 7, 1, 1, ch.body, ch.dark);
+  const stride = i => side && frame ? ((frame === 1) === (i === 0) ? 2 : -2) : 0;
+  (side ? [14, 17] : [12, 17]).forEach((x, i) => {
+    const lx = x + stride(i), ly = 25 - lift(i);
+    if (ch.girl) { rect(lx, ly, 3, 3, SKIN); rect(lx, ly + 2, 3, 2, "#ffffff"); }      // 다리 + 흰 양말
+    else { rect(lx - 1, ly, 5, 4, LINE); rect(lx, ly, 3, 4, NAVY); }                 // 남색 바지
+    rect(lx - (side ? 0 : 1), ly + 3, 4, 2, LINE); px(lx + 1, ly + 3, "#4a3a30");     // 구두
+  });
+  // 긴 머리·땋은 머리는 몸 뒤로 내려옴(앞모습에서는 어깨 옆으로)
+  if (!side && !back && (ch.hair === "long")) { rect(hx - 9, 11, 4, 12, LINE); rect(hx + 6, 11, 4, 12, LINE); rect(hx - 8, 11, 2, 11, H); rect(hx + 7, 11, 2, 11, H); }
+  // 몸통: 블레이저(검은 머리) 또는 흰 셔츠(금발)
+  const bx = side ? 12 : 10, bw = side ? 9 : 13;
+  if (ch.girl) { rect(side ? 11 : 9, 22, side ? 11 : 15, 5, LINE); rect(side ? 12 : 10, 22, side ? 9 : 13, 4, NAVY); for (let x = side ? 13 : 11; x < (side ? 21 : 23); x += 3) rect(x, 23, 1, 3, NAVY_D); } // 남색 주름치마
+  rect(bx - 1, 17, bw + 2, 7, LINE); rect(bx, 18, bw, 5, blazer ? NAVY : SHIRT);
+  if (back) { if (blazer) { rect(15, 18, 1, 5, NAVY_D); rect(bx, 18, bw, 1, NAVY_L); } else rect(bx, 18, bw, 1, SHIRT_D); }
+  else if (side) { rect(19, 18, 2, 3, SHIRT); px(20, 19, RED); if (blazer) rect(bx, 18, 2, 5, NAVY_L); }
+  else {
+    rect(14, 17, 4, 4, SHIRT); px(14, 17, SHIRT_D); px(17, 17, SHIRT_D);              // 셔츠 깃(V)
+    if (ch.girl) { rect(12, 20, 3, 2, RED); rect(17, 20, 3, 2, RED); rect(15, 20, 2, 2, RED_D); px(14, 22, RED); px(17, 22, RED); } // 실리본(턱 아래로 보이게)
+    else { rect(15, 18, 2, 5, RED); px(15, 18, RED_D); px(16, 18, RED_D); }           // 넥타이
+    if (blazer) { px(13, 21, NAVY_L); px(18, 21, NAVY_L); px(18, 22, "#c9a84a"); }    // 옷깃 끝·단추
+    else { rect(bx, 22, bw, 1, SHIRT_D); }
   }
-  // 머리
-  blob(hx, 13, side ? 8 : 9, 7, ch.body, ch.dark);
-  if (ch.mark === "stripes") for (const sx of (side ? [hx - 4, hx - 1] : [hx - 3, hx, hx + 3])) rect(sx, 6, 1, 3, ch.dark);
-  if (ch.mark === "star") { const sx = side ? hx + 1 : hx; rect(sx - 1, 8, 3, 1, "#ffd84a"); rect(sx, 7, 1, 3, "#ffd84a"); }
-  if (dir === "u") return; // 뒷모습은 얼굴 없음
-  if (ch.mark === "patch" && !side) oval(hx - 4, 12, 3, 2, ch.dark);
-  if (ch.mark === "muzzle") oval(side ? hx + 4 : hx, 16, side ? 3 : 4, 2, ch.belly);
-  const eyes = side ? [hx + 4] : [hx - 4, hx + 3];
-  for (const ex of eyes) { rect(ex, 12, 2, 3, EYE); px(ex, 12, "#ffffff"); }
-  const cheeks = side ? [hx + 5] : ch.mark === "cheeks" ? [hx - 7, hx + 5] : [hx - 6, hx + 5];
-  for (const cx of cheeks) rect(cx, 15, ch.mark === "cheeks" ? 3 : 2, ch.mark === "cheeks" ? 2 : 1, PINK);
-  if (ch.ear === "none") rect(side ? hx + 6 : hx - 1, 15, side ? 3 : 3, 2, "#f2a33a"); // 부리
-  else px(side ? hx + 7 : hx, 15, ch.dark); // 코
+  // 팔: 걸음에 맞춰 흔들림
+  const sw = frame ? (frame === 1 ? 1 : -1) : 0, sleeve = blazer ? NAVY : SHIRT;
+  if (side) { rect(16 + sw, 18, 3, 6, LINE); rect(17 + sw, 18, 2, 5, sleeve); rect(17 + sw, 23, 2, 1, SKIN); }
+  else { for (const [ax, d] of [[7, 1], [23, -1]]) { rect(ax, 17 + sw * d, 3, 7, LINE); rect(ax + 1, 18 + sw * d, 1, 5, sleeve); rect(ax + 1, 23 + sw * d, 1, 1, SKIN); } }
+  // 머리: 얼굴 → 머리카락
+  blob(hx, 11, side ? 7 : 8, 7, SKIN, LINE);
+  const hair = (x, y, w, h) => rect(x, y, w, h, H);
+  if (back) {
+    blob(hx, 9, 8, 7, H, LINE); rect(hx - 4, 4, 5, 1, HL);
+    if (ch.hair === "long") { rect(hx - 7, 12, 15, 11, LINE); rect(hx - 6, 12, 13, 10, H); rect(hx - 3, 14, 1, 7, HL); }
+    if (ch.hair === "bob") { rect(hx - 8, 12, 17, 5, LINE); rect(hx - 7, 12, 15, 4, H); }
+    if (ch.hair === "braid") for (const bxx of [hx - 4, hx + 3]) { rect(bxx - 1, 14, 4, 9, LINE); rect(bxx, 14, 2, 8, H); for (let y = 15; y < 22; y += 2) px(bxx, y, HL); rect(bxx, 21, 2, 1, RED); }
+    if (ch.hair === "perm") for (const [cx, cy] of [[hx - 6, 6], [hx - 2, 4], [hx + 3, 4], [hx + 6, 7], [hx - 6, 11], [hx + 6, 11], [hx, 13]]) blob(cx, cy, 2, 2, H, LINE);
+    return;
+  }
+  if (side) { // 옆모습: 뒤통수 쪽 머리 + 앞머리
+    blob(hx - 3, 6, 6, 4, H, LINE); hair(hx - 3, 3, 9, 3); px(hx, 3, HL);
+    if (ch.hair === "long" || ch.hair === "bob") { rect(hx - 8, 10, 5, ch.hair === "long" ? 13 : 7, LINE); rect(hx - 7, 10, 3, ch.hair === "long" ? 12 : 6, H); }
+    if (ch.hair === "braid") { rect(hx - 7, 12, 4, 10, LINE); rect(hx - 6, 12, 2, 9, H); rect(hx - 6, 20, 2, 1, RED); }
+    if (ch.hair === "perm") for (const [cx, cy] of [[hx - 5, 5], [hx - 1, 3], [hx + 3, 4], [hx - 6, 10]]) blob(cx, cy, 2, 2, H, LINE);
+    if (ch.hair === "shaggy") for (let x = hx; x < hx + 6; x += 2) px(x, 8, H);
+    if (ch.hair === "buzz") { rect(hx - 2, 4, 8, 2, H); }
+    if (ch.hair === "dandy") { hair(hx + 1, 6, 5, 2); px(hx + 5, 8, H); }
+    rect(hx + 3, 11, 2, 3, LINE); px(hx + 3, 11, "#ffffff"); px(hx + 7, 13, SKIN_D); rect(hx + 4, 15, 2, 1, PINK); px(hx + 4, 16, "#a0523a");
+    if (ch.glasses) { rect(hx + 2, 10, 5, 1, LINE); rect(hx + 2, 14, 5, 1, LINE); px(hx + 2, 11, LINE); px(hx + 2, 13, LINE); rect(hx - 2, 11, 4, 1, LINE); }
+    return;
+  }
+  // 앞모습 머리 모양(앞머리는 눈썹 위까지만 → 얼굴이 보이게)
+  const cap = (ry = 4) => { blob(hx, 5, 9, ry, H, LINE); rect(hx - 3, 2, 4, 1, HL); };
+  if (ch.hair === "bob") { cap(); rect(hx - 9, 6, 3, 10, LINE); rect(hx + 7, 6, 3, 10, LINE); rect(hx - 8, 6, 2, 9, H); rect(hx + 7, 6, 2, 9, H); hair(hx - 7, 6, 15, 2); }
+  if (ch.hair === "long") { cap(); rect(hx - 9, 6, 3, 7, LINE); rect(hx + 7, 6, 3, 7, LINE); rect(hx - 8, 6, 2, 7, H); rect(hx + 7, 6, 2, 7, H); hair(hx - 7, 6, 6, 1); hair(hx + 2, 6, 6, 1); } // 가운데 가르마
+  if (ch.hair === "braid") { cap(); hair(hx - 7, 6, 15, 1);
+    for (const bxx of [hx - 10, hx + 8]) { rect(bxx, 8, 4, 13, LINE); rect(bxx + 1, 8, 2, 12, H); for (let y = 9; y < 19; y += 2) px(bxx + 1, y, HL); rect(bxx + 1, 19, 2, 1, RED); } }
+  if (ch.hair === "shaggy") { cap(); for (let x = hx - 7; x <= hx + 6; x += 2) rect(x, 6, 2, x % 4 ? 2 : 3, H); rect(hx - 9, 6, 2, 5, H); rect(hx + 8, 6, 2, 5, H); }
+  if (ch.hair === "perm") { for (const [cx, cy] of [[hx - 7, 5], [hx - 3, 2], [hx + 2, 2], [hx + 6, 4], [hx - 8, 9], [hx + 8, 9]]) blob(cx, cy, 3, 3, H, LINE); hair(hx - 6, 4, 13, 3); for (const [cx, cy] of [[hx - 3, 1], [hx + 3, 1], [hx - 7, 4]]) px(cx, cy, HL); }
+  if (ch.hair === "buzz") { blob(hx, 5, 8, 3, H, LINE); for (let x = hx - 5; x < hx + 6; x += 3) px(x, 4, HL); }
+  if (ch.hair === "dandy") { cap(); hair(hx - 7, 6, 9, 2); hair(hx - 7, 8, 3, 1); rect(hx - 9, 6, 2, 4, H); rect(hx + 8, 6, 2, 4, H); } // 옆으로 넘긴 앞머리
+  // 얼굴: 눈·볼·입, 안경
+  for (const ex of [hx - 4, hx + 3]) { rect(ex, 11, 2, 2, EYE); px(ex, 11, "#ffffff"); }
+  for (const cx of [hx - 6, hx + 5]) rect(cx, 14, 2, 1, PINK);
+  rect(hx - 1, 16, 2, 1, "#a0523a");
+  if (ch.glasses) { for (const gx of [hx - 6, hx + 1]) { rect(gx, 10, 6, 1, LINE); rect(gx, 14, 6, 1, LINE); rect(gx, 10, 1, 5, LINE); rect(gx + 5, 10, 1, 5, LINE); } rect(hx - 1, 11, 2, 1, LINE); }
 }
 
 // 보충쌤(48×48, 직접 디자인): 얼룩 묻은 흰 가운, 동그란 안경, 매서운 눈썹, 반쯤 센 가르마 머리, 줄무늬 넥타이, 손에는 출석부
@@ -142,6 +181,6 @@ export function sprite(kind, dir = "d", frame = 0) {
   const ctx = cv.getContext("2d");
   if (dir === "l") { ctx.translate(N, 0); ctx.scale(-1, 1); } // 왼쪽은 오른쪽 모습을 뒤집음
   if (frame) ctx.translate(0, -1); // 걸을 때 몸이 살짝 통통 튐
-  kind === "teacher" ? teacher(ctx, dir, frame) : animal(ctx, CHARS[kind] ?? CHARS[0], dir, frame);
+  kind === "teacher" ? teacher(ctx, dir, frame) : student(ctx, CHARS[kind] ?? CHARS[0], dir, frame);
   cache.set(key, cv); return cv;
 }
