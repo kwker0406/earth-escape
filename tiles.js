@@ -1,7 +1,8 @@
 // 지도 도트 타일(32×32). 위에서 내려다보되 벽 앞면·책상 옆면·그림자를 그려 입체처럼 보이게 한다.
 // 그림 파일 없이 코드로 점을 찍고, 같은 모양은 한 번만 만들어 기억해 둔다.
+import { AREAS } from "./maps.js";
 const S = 32, cache = new Map();
-const WALL = "#", BOUND = "#+Gabcr", FURN = "DBTLH";
+const WALL = "#", BOUND = "#+Gabcr", FURN = "DBTLHPEUFNO"; // P 컴퓨터 책상 E 이젤 U 좌대 F 전시 패널 N 침대 O 복사기
 const hash = (x, y) => (Math.imul(x, 73856093) ^ Math.imul(y, 19349663)) >>> 0;
 
 function art(key, paint) {
@@ -32,7 +33,8 @@ function kindsOf(map, f) {
         if (ch && !BOUND.includes(ch) && !seen[ny * W + nx]) { seen[ny * W + nx] = 1; q.push([nx, ny]); }
       }
     }
-    const furn = /[DBTL]/.test(has), k = has.includes("z") ? "maze" : has.includes("m") ? "room" : has.includes("j") ? "jail" : has.includes(",") ? (furn ? "lock" : "roof") : furn ? "room" : "hall"; // z 조소 2실(어두운 흙바닥), m 조소 1실
+    const furn = /[DBTLPEUFNO]/.test(has), k = has.includes("z") ? "maze" : has.includes("m") ? "room" : has.includes("j") ? "jail" : /[CKRVWXS]/.test(has) ? "hall" // 계단이 있는 구역 = 복도(벽 없이 이어진 갤러리 포함)
+      : has.includes(",") ? (furn ? "lock" : "roof") : furn ? "room" : "hall"; // z 조소 2실(어두운 흙바닥), m 조소 1실
     let fc = "l";
     if (boards.length) {
       const avg = (arr, j) => arr.reduce((t, p) => t + (j ? Math.floor(p / W) : p % W), 0) / arr.length;
@@ -46,7 +48,9 @@ function kindsOf(map, f) {
 
 function floor(kind, v, sh) { // v: 무늬 변화(0~3), sh: 그림자(1 위쪽 벽·가구, 2 왼쪽 벽)
   return art(`F${kind}${v}${sh}`, (r) => {
-    if (kind === "hall") { // 복도: 베이지 리놀륨 바둑판
+    if (kind === "gallery") { // 갤러리: 따뜻한 원목 마루(가로로 긴 판자)
+      for (let i = 0; i < 4; i++) { const h = hash(v * 9 + i, i * 5); r(0, i * 8, 32, 8, (h & 1) ? "#b98a5a" : "#c4966a"); r(0, i * 8 + 7, 32, 1, "#8e6640"); r((h >> 4) % 28 + 2, i * 8, 1, 7, "#8e6640"); }
+    } else if (kind === "hall") { // 복도: 베이지 리놀륨 바둑판
       for (let i = 0; i < 4; i++) r((i & 1) * 16, (i >> 1) * 16, 16, 16, ((i & 1) ^ (i >> 1)) ? "#b4ad9f" : "#c2bbad");
       r(0, 15, 32, 1, "#9f988b"); r(15, 0, 1, 32, "#9f988b"); r(0, 31, 32, 1, "#9f988b"); r(31, 0, 1, 32, "#9f988b");
       for (let i = 0; i < 5; i++) { const h = hash(v * 7 + i, i * 3); r(h % 30 + 1, (h >> 8) % 30 + 1, 1, 1, "#a8a194"); }
@@ -240,6 +244,42 @@ export const statue = () => art("Q", (r) => {
   r(12, 4, 8, 10, "#f1ede4"); r(12, 4, 8, 1, "#ffffff"); r(19, 5, 1, 9, "#c9c2b5"); // 머리
   r(13, 8, 2, 1, "#9a9284"); r(17, 8, 2, 1, "#9a9284"); r(15, 11, 2, 1, "#b0a899"); // 눈·입
 });
+// ── 새 가구 ──
+const monitor = () => art("PM", (r) => { // 컴퓨터 책상 위: 모니터 + 키보드(책상 그림 위에 겹쳐 그림)
+  r(9, 3, 14, 10, "#2b2f3a"); r(10, 4, 12, 8, "#4f86c6"); r(10, 4, 12, 2, "#7fb0e6"); r(15, 13, 2, 3, "#2b2f3a"); r(12, 15, 8, 1, "#2b2f3a");
+  r(9, 17, 14, 3, "#e4e4e8"); for (let x = 10; x < 22; x += 2) r(x, 18, 1, 1, "#9a9aa4");
+});
+const easel = () => art("E", (r) => { // 이젤 + 그리다 만 캔버스
+  r(8, 28, 17, 3, "rgba(0,0,0,0.25)");
+  r(9, 6, 2, 22, "#8a5a2e"); r(21, 6, 2, 22, "#8a5a2e"); r(15, 4, 2, 24, "#6e4520");     // 다리
+  r(7, 20, 18, 2, "#6e4520");                                                            // 받침
+  r(8, 4, 16, 16, "#f4efe4"); r(8, 4, 16, 1, "#c9c0ae"); r(8, 19, 16, 1, "#c9c0ae");      // 캔버스
+  r(11, 9, 6, 5, "#c95a4a"); r(15, 11, 5, 4, "#4a7ac9"); r(11, 15, 9, 1, "#5a8a4a");      // 그림
+});
+const plinth = () => art("U", (r) => { // 좌대 위 석고 정육면체·구(정물)
+  r(7, 27, 19, 3, "rgba(0,0,0,0.25)");
+  r(8, 17, 16, 11, "#f1ede6"); r(8, 17, 16, 2, "#ffffff"); r(8, 26, 16, 2, "#c8c1b5");    // 좌대
+  r(10, 9, 8, 8, "#e9e4da"); r(10, 9, 8, 1, "#ffffff"); r(17, 9, 1, 8, "#c9c2b5");        // 정육면체
+  r(18, 10, 5, 5, "#f4f1ea"); r(19, 10, 3, 1, "#ffffff"); r(22, 11, 1, 3, "#c9c2b5");     // 구
+});
+const panel = () => art("F", (r) => { // 전시 패널(그림 액자)
+  r(6, 28, 21, 3, "rgba(0,0,0,0.25)");
+  r(8, 24, 2, 5, "#3a3a46"); r(22, 24, 2, 5, "#3a3a46");                                 // 다리
+  r(4, 3, 24, 22, "#2e2a36"); r(6, 5, 20, 18, "#d9b04a"); r(7, 6, 18, 16, "#2c4a6e");     // 액자
+  r(7, 15, 18, 7, "#3f6f4a"); r(17, 8, 5, 5, "#f0d27a"); r(9, 12, 7, 4, "#5a7fa8");        // 풍경화
+});
+const bed = () => art("N", (r) => { // 보건실 침대(위에서 본 모습)
+  r(4, 28, 25, 3, "rgba(0,0,0,0.25)");
+  r(4, 2, 24, 26, "#9aa3ad"); r(5, 3, 22, 24, "#f2f4f6");                                // 틀 + 시트
+  r(7, 4, 18, 6, "#ffffff"); r(7, 9, 18, 1, "#d6dbe0");                                   // 베개
+  r(5, 13, 22, 14, "#7fa6cf"); r(5, 13, 22, 2, "#a8c6e4");                                // 이불
+});
+const copier = () => art("O", (r) => { // 복사기
+  r(4, 27, 25, 3, "rgba(0,0,0,0.25)");
+  r(5, 6, 22, 21, "#c9ccd2"); r(5, 6, 22, 2, "#e6e8ec"); r(5, 25, 22, 2, "#8e939c");      // 몸체
+  r(7, 9, 18, 6, "#5d636e"); r(8, 10, 16, 4, "#3c414a");                                  // 덮개 유리
+  r(7, 18, 8, 3, "#2f3540"); r(8, 19, 3, 1, "#6fe08a"); r(18, 18, 5, 5, "#f2f2f2");      // 조작판·종이
+});
 const mat = () => art("M", (r) => { // 현관 매트
   r(3, 5, 26, 22, "#7a2e2a"); r(3, 5, 26, 1, "#a8473f"); for (let y = 9; y < 26; y += 4) r(5, y, 22, 1, "#5e221f");
 });
@@ -257,8 +297,15 @@ export function drawTile(ctx, map, f, x, y, px, py, T) {
   if (c === "Y") return put(elevator());
   const up = map[y - 1]?.[x], left = map[y]?.[x - 1];
   const sh = (up === WALL || FURN.includes(up ?? "") ? 1 : 0) | (left === WALL ? 2 : 0);
-  put(floor(k, hash(x, y) & 3, FURN.includes(c) || "CKRVWX".includes(c) ? 0 : sh));
+  const gal = AREAS[f]?.some(a => x >= a.x0 && x <= a.x1 && y >= a.y0 && y <= a.y1);  // 예원갤러리 바닥
+  put(floor(gal ? "gallery" : k, hash(x, y) & 3, FURN.includes(c) || "CKRVWX".includes(c) ? 0 : sh));
   if (c === "D") { const dm = FURN_M(map, x, y, "D"); put(dm ? desk(dm, 0) : seat(K.face[y * map[0].length + x])); } // 1칸 책상은 의자와 함께
+  else if (c === "P") { put(desk(FURN_M(map, x, y, "P"), 0)); put(monitor()); }        // 컴퓨터 책상(붙은 책상은 한 판으로)
+  else if (c === "E") put(easel());
+  else if (c === "U") put(plinth());
+  else if (c === "F") put(panel());
+  else if (c === "N") put(bed());
+  else if (c === "O") put(copier());
   else if (c === "T" || (/\d/.test(c) && FURN_M(map, x, y, "T"))) put(desk(FURN_M(map, x, y, "T0123456789"), 1)); // 교탁 위 퍼즐 칸도 교탁으로
   else if (c === "B") put(board(FURN_M(map, x, y, "B"), hash(x, y) % 3));
   else if (c === "L" || c === "H") put(locker(FURN_M(map, x, y, "LH"), c === "H" ? 1 : 0));

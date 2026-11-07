@@ -227,7 +227,7 @@ function arrival(map, via) {
 }
 const nextTo = (map, ch) => { const g = find(map, ch); if (g) for (const [dx, dy] of D4) if (map[g.y + dy]?.[g.x + dx] === ".") return { x: g.x + dx, y: g.y + dy }; };
 let MAP = MAPS[1];
-const walkable = (x, y) => { const c = MAP[y]?.[x]; return c && !"#DGjBTL".includes(c) && (!LOCKS.includes(c) || !!progress.keys?.[c]) && !(me?.f === 1 && statueAt(x, y)); };
+const walkable = (x, y) => { const c = MAP[y]?.[x]; return c && !"#DGjBTLPEUFNO".includes(c) && (!LOCKS.includes(c) || !!progress.keys?.[c]) && !(me?.f === 1 && statueAt(x, y)); };
 
 const $ = id => document.getElementById(id);
 const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids); return e; };
@@ -243,7 +243,7 @@ let mon = null, monR = null, grace = 0, quiz = null; // mon: 서버의 괴물, q
 let lastStair = 0, drawKey = "", hideMs = 0, lastT = 0, mStep = 0, mTarget = null, hideBlockUntil = 0;
 let PZ = null, progress = { ...net.NEW_PROGRESS }, hint = null, toastText = "", toastUntil = 0, openPz = null, got = {};
 let items = {}, flash = null, darkSince = null, darkGrace = 0, jailLine = ""; // 물건: { id: { by: 가진 학생 } 또는 떨어진 자리 { by: null, x, y, f } }
-const ITEM = { flash: "🔦 손전등", a: "🔑 온실 실험실 열쇠", b: "🔑 관측실 열쇠", c: "🔑 표본실 열쇠" }, BAG_MAX = 4;
+const ITEM = { flash: "🔦 손전등", a: "🔑 보건실 열쇠", b: "🔑 평가실 열쇠", c: "🔑 3교무실 열쇠" }, BAG_MAX = 4;
 const mine = () => Object.keys(items).filter(id => items[id]?.by === me.uid);
 
 // ── 입장 ──
@@ -653,7 +653,7 @@ function renderBag() {
 
 // ── 미니맵: 1~3층 전체 모양 + 팀이 발견한 퍼즐(🔍 못 품, ✅ 품) + 나(주황)·팀원(흰색) + 계단(초록 올라감, 파랑 내려감) ──
 const MAP_COLORS = { "#": "#2a2440", ".": "#c9c2b4", ",": "#9aa0a6", D: "#b08a5a", T: "#7a4f2a", B: "#2f5a40", L: "#6c7b93", H: "#c08a4a",
-  C: "#7fdc8f", K: "#7fdc8f", R: "#7fdc8f", V: "#7ab8ff", W: "#7ab8ff", X: "#7ab8ff", S: "#ff9a5a", m: "#d9c8b0", Q: "#d9c8b0", z: "#3a3448", j: "#a05050", G: "#c03a3a", "+": "#9c6b3c" };
+  C: "#7fdc8f", K: "#7fdc8f", R: "#7fdc8f", V: "#7ab8ff", W: "#7ab8ff", X: "#7ab8ff", S: "#ff9a5a", m: "#d9c8b0", Q: "#d9c8b0", z: "#3a3448", P: "#6a7a96", E: "#b08a5a", U: "#e8e4dc", F: "#d9b04a", N: "#c8d8e8", O: "#9aa0a8", j: "#a05050", G: "#c03a3a", "+": "#9c6b3c" };
 function renderMinimap() {
   const f = mapFloor ?? 1, M = MAPS[f], W = M[0].length, H = M.length;
   const box = $("bag"), cw = Math.min(box.clientWidth - 36, 560), s = Math.max(2, Math.floor(cw / W));

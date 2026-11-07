@@ -67,11 +67,11 @@ export function buildPuzzles(seed, code, no, level = "hard") {
     ["대기가 흡수한 에너지를 모두 더하면?", "156"], ["대기가 내보낸 에너지를 모두 더하면?", "156"],
     ["지표가 흡수한 에너지를 모두 더하면?", "145"], ["지표가 내보낸 에너지를 모두 더하면?", "145"],
   ][Math.floor(r() * 4)];
-  // 3층 표본실: 모래 표본병 — 연강수량 250 mm 이하가 사막(43쪽). 사막 2병 + 위도만 사막 같은 함정 1병
+  // 3층 3교무실(잠김 c): 모래 표본병 — 연강수량 250 mm 이하가 사막(43쪽). 사막 2병 + 위도만 사막 같은 함정 1병
   const bottleNo = nums(3);
   const bottles = [["30°N", 120], ["30°S", 600], ["25°N", 80]].map(([lat, rain], i) => ({ no: bottleNo[i], lat, rain }));
   const desertAns = bottles.filter(b => b.rain <= 250).map(b => b.no).sort((a, b) => a - b).join("");
-  // 3층 표본실: 사막화 원인 카드 — 사람의 활동 2장(44쪽) + 기후 변화 1 + 피해 1(함정)
+  // 3층 3교무실(잠김 c): 사막화 원인 카드 — 사람의 활동 2장(44쪽) + 기후 변화 1 + 피해 1(함정)
   const causeNo = nums(4);
   const causes = [["과잉 방목", 1], ["무분별한 삼림 벌채", 1],
     ["대기 대순환 변화로 강수량 감소", 0], ["황사가 이웃 나라까지 날아감", 0]].map(([t, human], i) => ({ t, human, no: causeNo[i] }));
@@ -100,7 +100,7 @@ export function buildPuzzles(seed, code, no, level = "hard") {
         clues: ["📜 조각 카드는 '단서' 가방에 있다(팀 공용)", "📜 보충쌤 출석부(원자 번호 1~20)도 가방에 있다", "📝 쪽지: 사건이 일어난(정해진) 해를 떠올려라", "📝 쪽지: 얻은 순서대로 놓으면 함정"],
         hints: ["(조각에 적힌 사건들, 45쪽 연표에서 봤어.)", "(1992 협약 → 1997 교토 → 2015 파리 → 2021 IPCC → 2050 탄소 중립)", "(순서대로 놓은 숫자를 출석부에서 원소 기호로 바꿔 읽어!)"] },
     ],
-    [ // 2층 · 37쪽 + 지리실(43쪽)
+    [ // 2층 · 37쪽 + 2교무실(43쪽)
       { id: "f2a", page: "37", title: "두 개의 온도계", type: "code", ask: "온실 효과 덕분에 지구 평균 기온은 약 몇 ℃ 높아졌을까? (숫자만)", answer: "33",
         clues: ["🌡 온도계 A: 대기가 없는 지구의 평균 기온 약 −18 ℃", "🌡 온도계 B: 대기가 있는 지구의 평균 기온 약 15 ℃", "📝 쪽지: 대기는 지구 복사 에너지를 붙잡았다가 일부를 지표로 되돌린다", "📝 쪽지: 높아진 만큼 = B − A"],
         hints: ["(온도계 두 개를 비교해야 해.)", "(영하에서 영상으로 올라간 거니까 빼기를 조심!)", "(B − A인데 A가 영하야. 음수를 빼면 더하기가 돼!)"] },
@@ -110,13 +110,13 @@ export function buildPuzzles(seed, code, no, level = "hard") {
         hints: ["(공장 굴뚝, 소 농장, 바다… 어디서 무엇이 나올까?)", "(유기물이 썩을 때 나오는 기체는 이름에 '메'가 들어가.)", "(이산화 탄소-화석 연료, 메테인-가축, 수증기-증발)"] },
       // 버튼 4개를 순서대로 4번(같은 버튼 여러 번 가능 → 256가지). 버튼 자리는 팀마다 섞음
       { id: "f4a", page: "43", title: "공기 흐름의 문", type: "seq",
-        ask: "문 글씨: \"사막 표본실 문은 적도에서 출발한 공기가 한 바퀴 도는 순서대로 눌러야 열린다.\" 버튼을 순서대로 네 번 눌러라.",
+        ask: "열쇠 상자 글씨: \"3교무실 열쇠는 적도에서 출발한 공기가 한 바퀴 도는 순서대로 눌러야 나온다.\" 버튼을 순서대로 네 번 눌러라.",
         steps: ["⬆ 위로 올라감", "➡ 높은 하늘에서 극 쪽으로", "⬇ 아래로 내려옴", "⬅ 지표를 따라 적도 쪽으로"],
         clues: ["🏜 메모: 적도에서 데워진 공기는 위로 올라가며 비를 뿌린다", "🏜 메모: 올라간 공기는 높은 하늘에서 극 쪽으로 이동한다",
           "🏜 메모: 비를 뿌린 마른 공기는 위도 30° 부근에서 아래로 내려온다 — 그래서 사막이 생긴다", "🏜 메모: 내려온 공기는 지표를 따라 적도로 돌아간다(무역풍)"],
         hints: ["(적도는 뜨거워. 뜨거운 공기는 어느 쪽으로 움직일까?)", "(올라간 공기는 어디로 가야 다시 내려올 수 있을까?)", "(사막은 공기가 내려오는 위도 30° 근처. 내려온 공기는 무역풍이 되어…)"] },
     ],
-    [ // 3층 · 41~42쪽 + 표본실(43~44쪽)
+    [ // 3층 · 41~42쪽 + 3교무실(43~44쪽)
       { id: "f3a", page: "41~42", title: "바람의 지구본", type: "pair", ask: "지구 전체를 도는 바람과 그 바람이 부는 위도를 짝지어라.",
         left: ["무역풍", "편서풍", "극동풍"], right: ["적도 ~ 위도 30°", "위도 30° ~ 60°", "위도 60° ~ 극"],
         clues: ["🌐 메모: 적도의 따뜻한 공기는 올라가고, 극의 차가운 공기는 내려온다", "🌐 메모: 저위도의 바닷물은 동쪽에서 서쪽으로 부는 바람에 밀려 서쪽으로 흐른다", "🌐 메모: 중위도의 바닷물은 서쪽에서 불어오는 바람에 밀려 동쪽으로 흐른다", "🌐 메모: 극에서 부는 바람은 가장 높은 위도에"],
@@ -150,10 +150,10 @@ export function buildPuzzles(seed, code, no, level = "hard") {
 // at: { 단서 번호: 그 단서가 놓인 층 } — 다른 층에서 단서를 가져와야 풀린다
 const LINKS = {
   f1b: { gives: { up: 1 } },
-  f1a: { gives: { key: "a", name: "온실 실험실 열쇠" }, at: { 3: 2 } },          // 장부 ④는 2층
+  f1a: { gives: { key: "a", name: "보건실 열쇠" }, at: { 3: 2 } },              // 2층 보건실(온실 기체 짝짓기)          // 장부 ④는 2층
   f2a: { gives: { up: 1 } },
-  f2b: { gives: { key: "b", name: "관측실 열쇠" }, at: { 2: 3 } },              // 세 번째 기호 카드는 3층
-  f4a: { gives: { key: "c", name: "표본실 열쇠" } },                            // 2층 지리실 → 3층 표본실
+  f2b: { gives: { key: "b", name: "평가실 열쇠" }, at: { 2: 3 } },              // 세 번째 기호 카드는 3층
+  f4a: { gives: { key: "c", name: "3교무실 열쇠" } },                           // 2층 2교무실 → 3층 3교무실
   f3a: {},
   f3b: { gives: { flash: 1, name: "손전등" } },                                 // 1층 조소 2실(어두운 미로)에 필요
   f3c: {},
@@ -175,9 +175,9 @@ export function clueSpots(seed, code, floors, f, map) {
   const all = floors.flatMap((fl, ff) => fl.map(pz => [ff, pz])).filter(([, pz]) => !pz.off); // 전체 퍼즐 순번 p로 단서 주인을 돌림
   const r = rng(seed ^ hash(code + "spots" + f)), sy = map.findIndex(row => row.includes("S")), sx = sy < 0 ? -99 : map[sy].indexOf("S");
   const far = (x, y) => Math.abs(x - sx) + Math.abs(y - sy) > 2;
-  // 단서는 책상(D)·칠판(B) 위. 바로 옆에 바닥(.)이 있어야 함 → 잠긴 방(,)·보충실 안은 빠짐. 책상이 없는 층이면 바닥에
+  // 단서는 책상(D)·칠판(B)·컴퓨터(P)·이젤(E) 위. 바로 옆에 바닥(.)이 있어야 함 → 잠긴 방(,)·보충실 안은 빠짐. 책상이 없는 층이면 바닥에
   const nearFloor = (x, y) => [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => map[y + dy]?.[x + dx] === ".");
-  let pool = map.flatMap((row, y) => [...row].flatMap((c, x) => "DB".includes(c) && nearFloor(x, y) && far(x, y) ? [[x, y]] : []));
+  let pool = map.flatMap((row, y) => [...row].flatMap((c, x) => "DBPE".includes(c) && nearFloor(x, y) && far(x, y) ? [[x, y]] : [])); // 책상·칠판·컴퓨터·이젤
   if (!pool.length) pool = map.flatMap((row, y) => [...row].flatMap((c, x) => c === "." && far(x, y) ? [[x, y]] : []));
   const tiles = shuffle(pool, r);
   return all.flatMap(([ff, pz], p) => pz.clues.map((t, j) => ({ key: `${pz.id}-${j}`, pz: pz.title, t, p, j, f: pz.at?.[j] ?? ff })))
@@ -201,7 +201,7 @@ export function scatter(map, center, n, taken = new Set(), allowCenter = true) {
     const p = q[i], d = step.get(p.x + "," + p.y);
     for (const [dx, dy] of D) {
       const n2 = { x: p.x + dx, y: p.y + dy }, c = map[n2.y]?.[n2.x], k = n2.x + "," + n2.y;
-      if (!c || step.has(k) || "#+GabcrjDBTL".includes(c)) continue;
+      if (!c || step.has(k) || "#+GabcrjDBTLPEUFNO".includes(c)) continue;
       step.set(k, d + 1); q.push(n2);
     }
   }
@@ -219,7 +219,7 @@ export function dropSpot(map, target, key, taken = new Set()) {
     const p = q.pop();
     for (const [dx, dy] of D) {
       const n = { x: p.x + dx, y: p.y + dy }, c = map[n.y]?.[n.x], k = n.x + "," + n.y;
-      if (!c || seen.has(k) || "#+GabcrjDBTL".includes(c) || dist(n) > 4) continue; // 문을 넘지 않음 → 복도만
+      if (!c || seen.has(k) || "#+GabcrjDBTLPEUFNO".includes(c) || dist(n) > 4) continue; // 문을 넘지 않음 → 복도만
       seen.set(k, n); q.push(n);
     }
   }
