@@ -609,7 +609,7 @@ async function submit(pz, input) {
   if (!ok) return;
   const got1 = pz.gives?.flash ? "flash" : "abc".includes(pz.gives?.key ?? "x") ? pz.gives.key : null;
   if (got1) mine().length < BAG_MAX ? net.setItem(got1, { by: me.uid }) : dropAt(got1, me.f, me.x, me.y); // 가방이 차면 발밑에
-  toast(pz.gives?.up ? "🔓 위층 계단이 열렸다! 계단 앞 초록 칸에 모이자" : pz.gives?.flash ? "🔦 손전등을 얻었다! 1층 조소 2실은 캄캄해요. 꼭 들고 가세요"
+  toast(pz.gives?.up ? "🔓 위층 계단이 열렸다! 계단 앞 초록 칸에 모이자" : pz.gives?.flash ? "🔦 손전등을 얻었다! 1층 조소 2실은 작품 보호 때문에 불이 꺼져 있어요. 꼭 들고 가세요"
     : pz.gives?.key ? `🔑 ${pz.gives.name}${pz.gives.key === "r" ? "이 열렸다!" : "를 얻었다! 🎒에 있어요"}` : "✅ 정답!", 4000);
 }
 
@@ -827,7 +827,7 @@ function frame(now) {
     }
     else if (me.f === 1 && statueAt(nx, ny) && !pushStatue(nx, ny, dx, dy)) toast("🗿 꿈쩍도 안 한다… 반대편이 막혀 있어요", 1200);
     else if ((walkable(nx, ny) || (me.f === 1 && statueAt(nx, ny))) && !lockerTaken(nx, ny)) {
-      if (MAP[ny][nx] === "z" && !inDark(me.x, me.y) && !flashHeld()) toast("🔦 너무 어둡다! 손전등 빛 밖에 2초 있으면 잡혀 가요", 3000);
+      if (MAP[ny][nx] === "z" && !inDark(me.x, me.y) && !flashHeld()) toast("🔦 조소 2실은 작품을 보호하려고 불을 꺼 두었다! 손전등 빛 밖에 2초 있으면 잡혀 가요", 3500);
       // 괴물이 2칸 안에서 숨는 걸 보면 그 사물함을 열어 본다
       me.seen = into === "H" && mon?.n === ph.n && mon.f === me.f && ph.phase === "chase" && Math.abs(mon.x - nx) + Math.abs(mon.y - ny) <= SEEK_DIST ? 1 : 0;
       me.x = nx; me.y = ny; save();
