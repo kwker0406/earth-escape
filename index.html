@@ -247,7 +247,7 @@ const ITEM = { flash: "🔦 손전등", a: "🔑 보건실 열쇠", b: "🔑 평
 const mine = () => Object.keys(items).filter(id => items[id]?.by === me.uid);
 
 // ── 입장 ──
-CHARS.forEach((c, i) => $("avatars").append(el("button", { innerHTML: `<img src="${sprite(i).toDataURL()}" alt="" style="width:70%;image-rendering:pixelated;background:#d9d2c4;border-radius:10px">${c.name}`, ariaLabel: c.name,
+CHARS.forEach((c, i) => $("avatars").append(el("button", { innerHTML: `<img src="${sprite(i).toDataURL()}" alt="" style="width:70%;background:#d9d2c4;border-radius:10px">${c.name}`, ariaLabel: c.name,
   onclick: () => { avatar = i; [...$("avatars").children].forEach((c, j) => c.classList.toggle("sel", j === i)); } })));
 $("avatars").children[0].classList.add("sel");
 
@@ -1037,7 +1037,9 @@ const walkFrame = (o, x, y) => Math.abs(o.rx - x) + Math.abs(o.ry - y) > 0.02 ? 
 function drawChar(o, av, nick, cx, cy, mine) {
   const px = (o.rx - cx) * T + T / 2, py = (o.ry - cy) * T + T / 2;
   if (mine) { ctx.beginPath(); ctx.ellipse(px, py + T * 0.4, T * 0.42, T * 0.13, 0, 0, Math.PI * 2); ctx.fillStyle = "#ff7a3d99"; ctx.fill(); } // 내 캐릭터 발밑 표시
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high"; // 128px 학생 그림을 칸 크기로 줄일 때 선이 끊기지 않게
   ctx.drawImage(sprite(av ?? 0, o.d || "d", walkFrame(o, o.x, o.y)), px - T / 2, py - T * 0.55, T, T);
+  ctx.imageSmoothingEnabled = false;
   ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = "#fff";
   ctx.font = `bold ${Math.max(10, T * 0.32)}px sans-serif`;
   ctx.fillText(nick, px, py - T * 0.62 < 8 ? py + T * 0.62 : py - T * 0.62); // 맨 윗줄이면 이름표를 아래에

@@ -1,4 +1,4 @@
-// 도트 캐릭터(64×64 픽셀, 직접 디자인한 학생 8명 + 48×48 보충쌤). 앞(d)·뒤(u)·옆(l·r) × 서 있기(0)·걸음(1·2).
+// 도트 캐릭터(128×128 픽셀, 직접 디자인한 학생 8명 + 48×48 보충쌤). 앞(d)·뒤(u)·옆(l·r) × 서 있기(0)·걸음(1·2).
 // 그림 파일 없이 코드로 점을 찍어 만들고, 한 번 만든 그림은 기억해 둔다(sprite).
 // 교복: 검은 머리 학생은 남색 블레이저 + 흰 셔츠, 금발 학생은 블레이저 없이 흰 셔츠. 여학생 붉은 리본 + 남색 치마, 남학생 붉은 넥타이 + 남색 바지
 export const CHARS = [
@@ -22,127 +22,135 @@ function painter(ctx) {
   return { px, rect, oval, blob };
 }
 
-// 64×64 학생(쯔꾸르풍): 몸·얼굴은 한 칸씩 찍은 도트 지도(아래 문자열), 머리카락은 손으로 배치한 머리 가닥(clump)으로 그림.
-// 외곽선은 다 그린 뒤 자동으로 두름(outline). 앞·뒷모습 몸은 왼쪽 절반만 적고 좌우를 뒤집어 붙임
+// 128×128 학생(큰 머리 치비 도트): 큰 눈(흰자·홍채 3단·동공·반짝임), 눈썹, 웃는 입, 볼터치, 3~4단 명암 머리 가닥.
+// 머리카락은 끝이 뾰족한 가닥(clump)을 손으로 배치. 외곽선은 다 그린 뒤 자동으로 두름(outline)
 const PAL = {
-  skin: ["#ffe3cf", "#f3c09f", "#e39d84"], black: ["#2e2b40", "#1b1928", "#4d4a6a", "#7d79a6"], blond: ["#f4c95d", "#d39a3a", "#ffe79c", "#fff7d6"],
-  navy: ["#2c3b70", "#1c264d", "#41549a"], shirt: ["#ffffff", "#d5dbea", "#ffffff"], red: ["#dd3640", "#9b1e2b", "#f5717a"], shoe: ["#3d2b25", "#6b4a3c"],
+  skin: ["#ffe2cc", "#f4bf9e", "#e0977c"], black: ["#2f3550", "#1f2338", "#4a5578", "#7484b0", "#141626"], blond: ["#f2c14e", "#d0952f", "#ffe08a", "#fff3c4", "#a8691f"],
+  navy: ["#2c3b70", "#1c264d", "#41549a", "#131a38"], shirt: ["#ffffff", "#d5dbea", "#ffffff", "#aab3c8"], red: ["#dd3640", "#9b1e2b", "#f5717a"], shoe: ["#3d2b25", "#6b4a3c", "#24180f"],
 };
-const IRIS = { black: ["#2a1712", "#6b3f2c", "#b8845a"], blond: ["#16326a", "#3474c8", "#86c2f5"] }, LASH = "#1c1420", FRAME = "#3a3550", BLUSH = "#f7a7ae", MOUTH = "#b4524a";
-const half = rows => rows.map(r => r + [...r].reverse().join(""));        // 왼쪽 절반 → 좌우 대칭 한 줄
-const M = { // 도트 지도. J 윗옷 j 윗옷 그늘 k 윗옷 밝은 곳 W 셔츠 s 피부 t 피부 그늘 B 치마·바지 b 그늘 X 양말 x 양말 그늘 Z 구두 z 구두 광
-  upF: half([ // y31~44, x20~43
-    "..........tt", "........JWWt", ".....jJJJkWW", "....jJJJJJkW", "...jJJjJJJkW", "...JJJjJJJJk", "...JJJjJJJJJ",
-    "...JJJjJJJJJ", "...JJJjJJJJJ", "...JJJjJJJJJ", "...WWWjJJJJJ", "...sssjJJJJJ", "...ssttJJJJJ", "....tt.jjjjj"]),
-  skirtF: half(["......BBBBBB", ".....BBBBBBB", ".....BbBBBbB", "....BBbBBBbB", "....BbBBBbBB", "....bbbbbbbb"]), // y43~48
-  legG: [".sss.", ".sss.", ".sts.", ".XXX.", ".XXX.", ".XXx.", "ZZZZ.", "zZZZ."],                                 // y49~56
-  legB: ["BBBBB", "BBBBb", "BBBBb", "BBBBb", "BBBBb", "BBBBb", "BBBBb", "BBBBb", "BBBBb", "bbbbb", "ZZZZZ", "zZZZZ"], // y45~56
-  upS: [ // 옆모습 y31~44, x20~43
-    "..........ttt", ".........JJJWW", "........JJJJJJW", "........JJJJJJk", "........jJJJJJJ", "........jJJJJJJ", "........jJJJJJJ",
-    "........jJJJJJJ", "........jJJJJJJ", "........jJJJJJJ", "........jJJJJJJ", "........jJJJJJJ", "........jJJJJJJ", "........jjjjjjj"],
-  skirtS: [".......BBBBBBBB", "......BBBBBBBBBB", "......BbBBbBBbBB", ".....BBbBBbBBbBBB", ".....BbBBbBBbBBBB", ".....bbbbbbbbbbbb"],
-  legGS: [".sss.", ".sss.", ".sts.", ".XXX.", ".XXX.", ".XXx.", ".ZZZZ", ".zZZZ"],
-  legBS: ["BBBB.", "BBBB.", "BBBB.", "BBBB.", "BBBB.", "BBBB.", "BBBB.", "BBBB.", "BBBB.", "bbbb.", "ZZZZZ", "zZZZZ"],
-  faceF: [ // y11~31, x20~43
-    ".....ssssssssssssss.....", "...ssssssssssssssssss...", "..ssssssssssssssssssss..", ".ssssssssssssssssssssss.",
-    ...Array(11).fill("ssssssssssssssssssssssss"), ".ssssssssssssssssssssss.", ".ssssssssssssssssssssss.", "..ssssssssssssssssssss..",
-    "...ssssssssssssssssss...", ".....ssssssssssssss.....", "........ssssssss........"],
-  faceS: [ // y11~30, x22~45 (오른쪽을 봄)
-    "......ssssssssss........", "....ssssssssssssss......", "...ssssssssssssssss.....", "..ssssssssssssssssss....", ".sssssssssssssssssss....",
-    ...Array(7).fill(".sssssssssssssssssssss.."), ".ssssssssssssssssssssss.", ".sssssssssssssssssssss..", ".ssssssssssssssssssss...",
-    ".ssssssssssssssssssss...", "..sssssssssssssssssss...", "..ssssssssssssssssss....", "...ssssssssssssssss.....", ".....ssssssssssss......."],
-};
+const IRIS = { black: ["#3a2016", "#7a4a2c", "#b98252"], blond: ["#14306a", "#2f6fc4", "#7fbcf2"] }, PUPIL = "#170d0a", LASH = "#1c1420", FRAME = "#33304a", BLUSH = "rgba(244,128,140,0.55)", MOUTH = "#a8433c";
 function student(ctx, ch, dir, frame) {
   const { px: P, rect: R, oval: O } = painter(ctx), side = dir === "l" || dir === "r", back = dir === "u", front = !side && !back;
-  const [H, Hs, Hh, Hh2] = PAL[ch.color], [S, Ss] = PAL.skin, blazer = ch.color === "black", top = blazer ? PAL.navy : PAL.shirt, red = PAL.red, hs = ch.hair;
-  const C = { J: top[0], j: top[1], k: blazer ? top[2] : "#ffffff", W: "#ffffff", s: S, t: Ss, B: PAL.navy[0], b: PAL.navy[1], X: "#ffffff", x: PAL.shirt[1], Z: PAL.shoe[0], z: PAL.shoe[1] };
-  const map = (rows, x0, y0, sub = {}) => rows.forEach((r, y) => [...r].forEach((c, x) => { const col = sub[c] ?? C[c]; if (col) P(x0 + x, y0 + y, col); }));
-  const flip = rows => rows.map(r => [...r].reverse().join(""));
-  // 머리 가닥: (x,y)에서 시작해 폭 w → 1로 가늘어지며 len줄 내려감. lean: 끝이 옆으로 휘는 정도(+오른쪽). 오른쪽 가장자리 그늘, 위쪽 윤기
+  const [H, Hs, Hh, Hh2, Hd] = PAL[ch.color], [S, Ss, Sd] = PAL.skin, blazer = ch.color === "black", top = blazer ? PAL.navy : PAL.shirt, red = PAL.red, hs = ch.hair, nv = PAL.navy;
+  const I = IRIS[ch.color];
+  // 머리 가닥: (x,y)부터 폭 w → 1로 가늘어지며 len줄. lean: 끝이 옆으로 휘는 정도(+오른쪽), up: 위로 뻗침. 오른쪽 1/3 그늘·가장자리 진한 그늘, 위쪽 왼편 윤기
   const clump = (x, y, w, len, lean = 0, up = false) => { for (let k = 0; k < len; k++) {
-    const ww = Math.max(1, Math.round(w * (1 - k / len))), xx = Math.round(x + (w - ww) / 2 + lean * (k / len) ** 2), yy = up ? y - k : y + k;
-    R(xx, yy, ww, 1, H); if (ww > 2) P(xx + ww - 1, yy, Hs); if (ww > 3 && k < len / 3) P(xx + 1, yy, Hh); } };
-  const curls = (pts, r = 4) => pts.forEach(([x, y]) => { O(x, y, r, r, Hs); O(x - 1, y - 1, r - 1, r - 1, H); P(x - 2, y - 2, Hh); P(x - 1, y - 2, Hh); P(x - 2, y - 1, Hh); });
-  const braid = (x, y0, y1) => { for (let y = y0; y < y1; y += 4) { O(x, y + 2, 3, 2, H); R(x - 2, y + 3, 5, 1, Hs); P(x - 1, y + 1, Hh); } R(x - 2, y1, 5, 2, red[0]); P(x - 2, y1, red[2]); clump(x - 2, y1 + 2, 5, 4); };
-  const ring = (y, x0, x1) => { R(x0 + 2, y, x1 - x0 - 4, 1, Hh); R(x0, y + 1, 3, 1, Hh); R(x1 - 3, y + 1, 3, 1, Hh); for (let x = x0 + 4; x < x1 - 3; x += 5) P(x, y - 1, Hh2); }; // 윤기 링
-  const lift = i => (frame === 1 && i === 0) || (frame === 2 && i === 1) ? 2 : 0;
-  const stride = i => side && frame ? ((frame === 1) === (i === 0) ? 3 : -3) : 0;
+    const t = k / len, ww = Math.max(1, Math.round(w * (1 - t))), xx = Math.round(x + (w - ww) / 2 + lean * t * t), yy = up ? y - k : y + k;
+    R(xx, yy, ww, 1, H); if (ww > 3) R(xx + Math.ceil(ww * 0.66), yy, Math.floor(ww / 3), 1, Hs); if (ww > 2) P(xx + ww - 1, yy, Hd);
+    if (ww > 4 && t < 0.45) { P(xx + 1, yy, Hh); if (t < 0.2) P(xx + 2, yy, Hh2); } } };
+  const mclump = (x, y, w, len, lean = 0, up = false) => clump(128 - x - w, y, w, len, -lean, up);   // 좌우 대칭 가닥
+  const curls = (pts, r = 7) => pts.forEach(([x, y]) => { O(x, y, r, r, Hd); O(x - 1, y - 1, r - 1, r - 1, Hs); O(x - 2, y - 2, r - 2, r - 2, H); O(x - 3, y - 3, 2, 1, Hh); P(x - 4, y - 2, Hh2); });
+  const braid = (x, y0, y1) => { for (let y = y0; y < y1; y += 6) { O(x, y + 3, 5, 3, Hs); O(x - 1, y + 2, 4, 2, H); R(x - 3, y + 1, 2, 1, Hh); } R(x - 4, y1, 9, 3, red[0]); R(x - 3, y1, 3, 1, red[2]); clump(x - 4, y1 + 3, 9, 8); };
+  const cap = (yb, ry = 28, rx = 32, cy = 40) => { ctx.save(); ctx.beginPath(); ctx.rect(0, 0, 128, yb); ctx.clip(); O(64, cy, rx, ry, H); ctx.restore(); }; // 앞쪽 머리 윗부분(둥근 머리 모양 그대로 yb까지)
+  const ring = (y, x0, x1) => { R(x0 + 6, y, x1 - x0 - 12, 2, Hh); R(x0 + 1, y + 2, 6, 2, Hh); R(x1 - 7, y + 2, 6, 2, Hh); for (let x = x0 + 9; x < x1 - 8; x += 7) R(x, y, 3, 1, Hh2); }; // 윤기 링
+  const lift = i => (frame === 1 && i === 0) || (frame === 2 && i === 1) ? 3 : 0;
+  const stride = i => side && frame ? ((frame === 1) === (i === 0) ? 6 : -6) : 0;
+  const sw = frame ? (frame === 1 ? 2 : -2) : 0;
+  const shoe = (x, y, w, toe = 0) => { R(x, y, w + toe, 4, PAL.shoe[0]); R(x + 1, y, 3, 1, PAL.shoe[1]); R(x, y + 4, w + toe, 1, PAL.shoe[2]); };
+  const legG = (x, y) => { R(x, y, 6, 7, S); R(x + 4, y, 2, 7, Ss); R(x, y + 6, 6, 5, "#ffffff"); R(x + 4, y + 6, 2, 5, PAL.shirt[1]); };
+  const legB = (x, y, h = 19) => { R(x, y, 10, h, nv[0]); R(x + 7, y, 3, h, nv[1]); R(x + 4, y + 3, 1, h - 5, nv[1]); };
+  const hand = (x, y) => { O(x, y, 4, 3, S); R(x + 1, y + 2, 3, 1, Ss); };
 
-  if (side) { // ── 옆모습(오른쪽을 봄)
-    if (hs === "long") { R(18, 14, 12, 30, H); R(19, 30, 3, 12, Hs); for (const x of [17, 21, 25]) clump(x, 40, 6, 7, -1); }
-    if (hs === "bob") for (const x of [17, 21, 25]) clump(x, 14, 6, 19, 1);
-    if (hs === "braid") braid(22, 24, 42);
-    [27, 30].forEach((x, i) => map(ch.girl ? M.legGS : M.legBS, x + stride(i), (ch.girl ? 49 : 45) - lift(i), i ? {} : { s: Ss, B: PAL.navy[1] }));
-    if (ch.girl) map(M.skirtS, 20, 43);
-    map(M.upS, 20, 31);
-    R(33, 33, 2, ch.girl ? 3 : 9, red[0]); P(34, 33, red[2]);                                                // 리본·넥타이 끝
-    const sw = frame ? (frame === 1 ? 2 : -2) : 0;                                                          // 팔
-    R(29 + sw, 33, 4, 8, top[0]); R(29 + sw, 33, 1, 8, top[1]); R(29 + sw, 41, 4, 1, "#ffffff"); R(29 + sw, 42, 4, 2, S); R(29 + sw, 43, 4, 1, Ss);
-    O(29, 16, 14, 13, H);                                                                                  // 뒤통수
-    map(M.faceS, 22, 11); R(29, 19, 3, 5, S); P(30, 20, Ss); P(30, 21, Ss); P(30, 22, Ss);                    // 얼굴 + 귀
-    R(36, 18, 5, 1, LASH); P(41, 17, LASH); R(37, 19, 3, 2, IRIS[ch.color][0]); P(37, 19, "#ffffff"); P(38, 19, "#ffffff"); P(37, 20, "#ffffff");
-    R(37, 21, 3, 2, IRIS[ch.color][1]); P(38, 22, IRIS[ch.color][2]);                                        // 눈
-    R(35, 25, 3, 1, BLUSH); P(44, 23, Ss); R(40, 27, 2, 1, MOUTH);
+  if (side) { // ── 옆모습(오른쪽을 봄. 왼쪽은 뒤집어 씀)
+    if (hs === "long") { R(36, 40, 22, 60, H); R(38, 70, 6, 28, Hs); for (const x of [34, 41, 48]) clump(x, 98, 9, 10, -2); }
+    if (hs === "bob") { R(36, 40, 22, 28, H); for (const x of [35, 42, 49]) clump(x, 66, 9, 6, 1); }
+    if (hs === "braid") braid(44, 62, 98);
+    [56, 62].forEach((x, i) => { const y = -lift(i), sx = x + stride(i);
+      if (ch.girl) { legG(sx, 106 + y); shoe(sx - 1, 117 + y, 8, 3); } else { legB(sx - 2, 98 + y); shoe(sx - 2, 117 + y, 10, 3); }
+      if (!i) R(sx - 2, 98 + y, 12, 24, "rgba(0,0,0,0.12)"); });                                              // 뒤쪽 다리 그늘
+    if (ch.girl) for (let y = 95; y < 109; y++) { const w = 14 + ((y - 95) >> 1); R(65 - w, y, w * 2, 1, y > 106 ? nv[1] : nv[0]); }
+    if (ch.girl) for (let x = 54; x < 78; x += 5) R(x, 99, 1, 8, nv[1]);
+    R(54, 76, 22, 24, top[0]); R(54, 78, 4, 22, top[1]); R(56, 74, 16, 2, top[0]); if (blazer) R(54, 97, 22, 3, nv[1]);
+    R(72, 75, 4, 12, "#ffffff"); R(73, 79, 3, ch.girl ? 5 : 16, red[0]); P(73, 79, red[2]);                     // 앞섶: 셔츠 + 리본·넥타이
+    if (!ch.girl && !blazer) R(54, 96, 22, 3, PAL.shoe[0]);
+    R(60 + sw, 78, 9, 19, top[0]); R(60 + sw, 78, 2, 19, top[1]); R(66 + sw, 78, 3, 19, top[2]); if (blazer) R(60 + sw, 95, 9, 2, "#ffffff"); hand(64 + sw, 100); // 팔
+    R(62, 68, 10, 9, Ss);                                                                                       // 목
+    O(60, 42, 29, 28, H); O(60, 50, 26, 20, Hs);                                                                // 뒤통수
+    O(70, 53, 22, 22, Ss); O(68, 51, 21, 21, S); O(72, 63, 15, 12, S); R(88, 56, 3, 4, S); P(91, 58, S); P(90, 59, Ss); // 얼굴·턱·코
+    O(57, 57, 4, 6, S); O(57, 58, 2, 3, Ss);                                                                   // 귀
+    R(76, 42, 9, 2, Hd); P(84, 44, Hd);                                                                         // 눈썹
+    R(74, 47, 10, 2, LASH); P(84, 46, LASH); P(85, 45, LASH); R(76, 49, 7, 12, "#ffffff"); O(79, 55, 3, 6, I[1]); R(77, 49, 6, 2, I[0]); R(78, 59, 3, 2, I[2]);
+    O(79, 55, 1, 3, PUPIL); R(77, 50, 2, 3, "#ffffff"); P(81, 58, "#ffffff"); R(77, 61, 6, 1, Ss);               // 눈
+    O(76, 66, 3, 2, BLUSH); R(83, 68, 5, 1, MOUTH); P(82, 67, MOUTH);                                            // 볼·입
     // 앞머리(앞으로 휨)·옆머리
-    if (hs === "buzz") { O(30, 13, 13, 8, H); R(32, 9, 12, 3, H); for (let x = 22; x < 42; x += 3) P(x, 9, Hh); }
-    else if (hs === "perm") curls([[20, 10], [25, 5], [31, 3], [37, 4], [42, 8], [43, 13], [18, 18], [21, 25], [26, 27]]);
-    else { O(30, 12, 14, 9, H); for (const [x, l, ln] of [[30, 7, 6], [34, 6, 7], [38, 6, 6], [41, 4, 5]]) clump(x, 10, l, ln, 2); clump(25, 12, 6, 12, -1); }
-    if (hs === "shaggy") { for (const x of [24, 30, 36]) clump(x, 4, 5, 4, 1, true); clump(42, 12, 4, 6, 2); }
-    if (hs === "dandy") { clump(31, 8, 10, 9, 4); }
-    if (hs !== "perm" && hs !== "buzz") ring(6, 22, 40);
-    if (ch.glasses) { R(35, 17, 6, 1, FRAME); R(35, 23, 6, 1, FRAME); R(35, 17, 1, 7, FRAME); R(40, 17, 1, 7, FRAME); R(29, 19, 6, 1, FRAME); P(39, 18, "#ffffff"); }
+    if (hs === "buzz") { O(62, 38, 27, 18, H); R(66, 26, 22, 8, H); for (let x = 42; x < 86; x += 5) R(x, 26 + ((x >> 2) % 3), 3, 1, Hh); }
+    else if (hs === "perm") curls([[40, 22], [50, 13], [62, 10], [74, 12], [84, 18], [88, 28], [36, 34], [36, 46], [40, 58], [48, 66]]);
+    else { O(60, 36, 29, 20, H); for (const [x, w, ln, l] of [[64, 11, 16, 6], [72, 11, 16, 8], [80, 10, 15, 7], [87, 7, 10, 5]]) clump(x, 30, w, ln, l); clump(52, 36, 11, 24, -2); ring(18, 40, 82); }
+    if (hs === "shaggy") { for (const [x, l] of [[46, -4], [58, 0], [70, 4]]) clump(x, 22, 10, 11, l, true); clump(88, 34, 8, 10, 6); }
+    if (hs === "dandy") clump(62, 26, 22, 18, 10);
+    if (ch.glasses) { R(73, 45, 13, 2, FRAME); R(73, 62, 13, 2, FRAME); R(73, 45, 2, 19, FRAME); R(84, 45, 2, 19, FRAME); R(58, 52, 15, 2, FRAME); R(81, 48, 2, 1, "#ffffff"); P(82, 49, "#ffffff"); }
     return;
   }
 
   // ── 앞·뒷모습
-  if (front && hs === "long") { R(18, 16, 28, 30, H); R(21, 30, 22, 15, Hs); }                            // 몸 뒤로 넘어간 긴 머리
-  if (front && hs === "bob") R(18, 16, 28, 15, H);
-  [26, 33].forEach((x, i) => { const L = ch.girl ? M.legG : M.legB; map(i ? flip(L) : L, x, (ch.girl ? 49 : 45) - lift(i)); });
-  if (!ch.girl) R(26, 45, 12, 2, PAL.navy[0]);                                                            // 바지 위쪽(가랑이)
-  if (ch.girl) map(M.skirtF, 20, 43);
-  const sw = frame ? (frame === 1 ? 1 : -1) : 0;
-  map(M.upF.map((r, y) => y < 2 ? r : r.slice(0, 7).replace(/./g, c => c) + r.slice(7)), 20, 31, back ? { W: top[0], k: top[0] } : {});
-  if (sw) { R(23, 41 + sw, 3, 3, S); R(38, 41 - sw, 3, 3, S); }                                             // 걸을 때 손이 앞뒤로
-  if (!ch.girl && !blazer) { R(26, 44, 12, 2, PAL.shoe[0]); R(31, 44, 2, 2, "#c9a84a"); }                   // 허리띠
+  if (front && hs === "long") { R(32, 40, 64, 64, H); R(40, 74, 48, 28, Hs); }                                  // 몸 뒤로 넘어간 긴 머리
+  if (front && hs === "bob") R(32, 40, 64, 32, H);
+  [53, 69].forEach((x, i) => { const y = -lift(i);
+    if (ch.girl) { legG(x, 106 + y); shoe(x - 1, 117 + y, 8); } else { legB(x - 2, 98 + y); shoe(x - 3, 117 + y, 12); } });
+  if (!ch.girl) R(51, 97, 26, 4, nv[0]);                                                                        // 바지 윗부분
+  if (ch.girl) { for (let y = 95; y < 109; y++) { const w = 17 + ((y - 95) * 5 / 13 | 0); R(64 - w, y, w * 2, 1, y > 106 ? nv[1] : nv[0]); } for (let x = 50; x < 80; x += 5) R(x, 99, 2, 8, nv[1]); }
+  // 몸통
+  for (let y = 75; y < 101; y++) { const w = y < 80 ? 10 + (y - 75) * 1 : 15; R(64 - w, y, w * 2, 1, top[0]); }
+  R(73, 79, 6, 21, top[1]); R(49, 80, 2, 20, top[2]); if (blazer) R(49, 98, 30, 2, nv[1]);
+  for (const [ax, d] of [[40, 1], [80, -1]]) { const ay = 78 + sw * d;                                          // 팔
+    R(ax + 1, ay, 7, 2, top[0]); R(ax, ay + 2, 9, 19, top[0]); R(d > 0 ? ax + 7 : ax, ay + 2, 2, 19, top[1]); R(d > 0 ? ax : ax + 7, ay + 2, 1, 19, top[2]);
+    if (blazer) R(ax, ay + 19, 9, 2, "#ffffff"); hand(ax + 4, ay + 24); }
+  if (!ch.girl && !blazer) { R(49, 96, 30, 3, PAL.shoe[0]); R(62, 96, 4, 3, "#c9a84a"); }                        // 허리띠
   if (back) {
-    if (blazer) R(31, 36, 2, 9, top[1]);
-    R(18, 19, 2, 5, S); R(44, 19, 2, 5, S);                                                               // 귀
-    O(32, 16, 15, 14, H); ring(6, 21, 43);
-    if (hs === "long") { R(17, 22, 30, 20, H); for (const x of [22, 27, 32, 37, 42]) R(x, 26, 1, 14, Hs); for (const x of [17, 22, 27, 32, 37, 41]) clump(x, 41, 6, 6, x < 31 ? -1 : 1); }
-    if (hs === "bob") { R(17, 22, 30, 7, H); for (const x of [17, 22, 27, 32, 37, 42]) clump(x, 28, 5, 4); R(17, 24, 30, 1, Hs); }
-    if (hs === "braid") { braid(26, 26, 42); braid(38, 26, 42); }
-    if (hs === "perm") curls([[19, 12], [45, 12], [18, 20], [46, 20], [21, 27], [43, 27], [27, 30], [32, 31], [37, 30], [24, 5], [32, 3], [40, 5]]);
-    if (hs === "shaggy" || hs === "dandy") for (const x of [20, 25, 30, 35, 40]) clump(x, 26, 5, 6);
-    if (hs === "buzz") { R(26, 28, 12, 3, S); for (let x = 21; x < 43; x += 3) for (let y = 10; y < 26; y += 5) P(x + (y % 2), y, Hh); }
+    if (blazer) R(63, 80, 2, 18, nv[1]); else R(63, 82, 2, 14, PAL.shirt[1]);
+    O(38, 56, 4, 6, S); O(90, 56, 4, 6, S);                                                                   // 귀
+    O(64, 42, 32, 30, H); O(64, 54, 28, 18, Hs); O(64, 40, 30, 26, H); ring(18, 38, 90);                      // 뒤통수 + 윤기 링
+    if (hs === "long") { R(32, 52, 64, 46, H); for (const x of [44, 54, 64, 74, 84]) R(x, 60, 2, 34, Hs); for (let x = 32; x < 96; x += 8) clump(x, 97, 9, 10, x < 62 ? -2 : 2); }
+    if (hs === "bob") { R(32, 52, 64, 16, H); for (let x = 32; x < 96; x += 8) clump(x, 67, 9, 6); }
+    if (hs === "braid") { braid(52, 64, 98); braid(76, 64, 98); }
+    if (hs === "perm") curls([[36, 26], [92, 26], [34, 40], [94, 40], [38, 54], [90, 54], [46, 64], [58, 68], [70, 68], [82, 64], [48, 14], [64, 10], [80, 14]]);
+    if (hs === "shaggy" || hs === "dandy") for (let x = 38; x < 90; x += 10) clump(x, 64, 11, 10, x < 62 ? -2 : 2);
+    if (hs === "buzz") { R(52, 64, 24, 6, Ss); for (let y = 22; y < 62; y += 8) for (let x = 40; x < 88; x += 9) R(x + (y % 16 ? 4 : 0), y, 3, 1, Hh); }
     return;
   }
-
-  // 앞모습: 셔츠 깃·리본·넥타이·단추
-  if (blazer) { P(34, 39, "#e6c25a"); P(34, 42, "#e6c25a"); }
-  else { R(31, 36, 2, 8, top[1]); }
-  if (ch.girl) { R(26, 33, 5, 4, red[0]); R(33, 33, 5, 4, red[0]); R(30, 33, 4, 3, red[1]); P(27, 33, red[2]); P(34, 33, red[2]); R(28, 37, 2, 3, red[0]); R(34, 37, 2, 3, red[0]); }
-  else { R(31, 33, 2, 2, red[1]); R(31, 35, 2, blazer ? 4 : 8, red[0]); P(31, 35, red[2]); }
+  // 앞모습: V자 셔츠·깃·단추·리본·넥타이
+  if (blazer) { for (let y = 75; y < 91; y++) { const w = Math.max(1, 8 - ((y - 75) >> 1)); R(64 - w, y, w * 2, 1, "#ffffff"); R(64 - w - 2, y, 2, 1, nv[2]); R(64 + w, y, 2, 1, nv[2]); }
+    for (const y of [92, 97]) R(67, y, 2, 2, "#e6c25a"); R(51, 91, 8, 1, nv[1]); R(70, 91, 8, 1, nv[1]); }
+  else { R(63, 82, 2, 14, PAL.shirt[1]); for (const y of [85, 90]) P(65, y, PAL.shirt[3]); }
+  for (let k = 0; k < 5; k++) { R(55 + k, 74 + k, 8 - k, 1, "#ffffff"); R(65, 74 + k, 8 - k, 1, "#ffffff"); P(55 + k, 75 + k, PAL.shirt[1]); }    // 셔츠 깃
+  if (ch.girl) { O(57, 81, 5, 3, red[0]); O(71, 81, 5, 3, red[0]); R(55, 79, 3, 1, red[2]); R(69, 79, 3, 1, red[2]); R(62, 78, 4, 6, red[1]);
+    for (const [x, l] of [[59, -1], [67, 1]]) for (let k = 0; k < 7; k++) R(x + (l * k >> 1), 84 + k, 3, 1, red[0]); }                          // 리본
+  else { R(62, 77, 4, 4, red[1]); for (let y = 81; y < (blazer ? 91 : 96); y++) R(62 - (y > 85 ? 1 : 0), y, y > 85 ? 6 : 4, 1, red[0]); R(62, 81, 1, 10, red[2]); }
   // 얼굴
-  if (hs === "buzz") O(32, 15, 14, 10, H); else if (hs !== "perm") O(32, 15, 15, 12, H);                  // 머리 뒤판
-  if (hs === "perm") curls([[19, 13], [45, 13], [19, 20], [45, 20], [20, 26], [44, 26], [22, 6], [42, 6], [27, 3], [32, 2], [37, 3]], 4);
-  R(18, 19, 2, 5, S); R(44, 19, 2, 5, S); P(19, 20, Ss); P(44, 20, Ss);                                    // 귀
-  map(M.faceF, 20, 11); R(21, 15, 22, 1, Ss);                                                            // 얼굴 + 앞머리 그늘
-  const eye = x => { R(x - 1, 18, 6, 1, LASH); R(x, 19, 4, 4, IRIS[ch.color][0]); R(x, 21, 4, 2, IRIS[ch.color][1]); R(x + 1, 23, 2, 1, IRIS[ch.color][2]); R(x, 19, 2, 2, "#ffffff"); P(x + 3, 22, "#ffffff"); };
-  eye(24); eye(36); P(23, 17, LASH); P(40, 17, LASH);                                                    // 눈 + 눈꼬리
-  R(21, 25, 3, 1, BLUSH); R(40, 25, 3, 1, BLUSH); P(31, 24, Ss); R(31, 27, 2, 1, MOUTH);
+  R(57, 66, 14, 12, Ss); R(57, 72, 14, 2, Sd);                                                                 // 목(턱 그늘)
+  if (hs === "buzz") O(64, 42, 29, 24, H); else if (hs !== "perm") O(64, 40, 32, 28, H);                       // 머리 뒤판
+  if (hs === "perm") curls([[38, 30], [90, 30], [37, 42], [91, 42], [39, 54], [89, 54], [44, 20], [84, 20], [54, 14], [64, 12], [74, 14]], 7);
+  O(40, 57, 4, 6, S); O(88, 57, 4, 6, S); O(40, 58, 2, 3, Ss); O(88, 58, 2, 3, Ss);                             // 귀
+  O(66, 52, 25, 21, Ss); O(66, 63, 18, 13, Ss); O(64, 51, 24, 21, S); O(64, 62, 18, 13, S);                     // 얼굴(오른쪽 아래 그늘)
+  R(42, 38, 44, 4, Ss);                                                                                        // 앞머리 그늘
+  const brow = (x, d) => { R(x, 42, 10, 2, Hd); P(d > 0 ? x + 10 : x - 1, 43, Hd); };
+  brow(46, 1); brow(72, -1);
+  const eye = (x, out) => {
+    R(x, 47, 11, 2, LASH); R(out < 0 ? x - 2 : x + 11, 48, 2, 2, LASH); P(out < 0 ? x - 3 : x + 13, 50, LASH);
+    R(x, 49, 11, 12, "#ffffff"); P(x, 60, S); P(x + 10, 60, S);
+    O(x + 5, 55, 4, 6, I[1]); R(x + 1, 49, 9, 2, I[0]); R(x + 3, 58, 5, 2, I[2]); O(x + 5, 55, 2, 3, PUPIL);
+    R(x + 2, 50, 3, 3, "#ffffff"); R(x + 7, 58, 2, 1, "#ffffff"); R(x + 2, 61, 7, 1, Ss); };
+  eye(46, -1); eye(71, 1);
+  R(63, 63, 2, 2, Ss); O(48, 66, 4, 2, BLUSH); O(80, 66, 4, 2, BLUSH);                                           // 코·볼
+  P(59, 67, MOUTH); R(60, 68, 8, 1, MOUTH); P(68, 67, MOUTH); R(61, 69, 6, 1, "#d9736a");                        // 웃는 입
   // 앞머리·옆머리
-  if (hs === "bob") { R(19, 8, 26, 6, H); for (let x = 19; x < 44; x += 4) clump(x, 13, 5, 4); clump(16, 12, 6, 20, 1); clump(42, 12, 6, 20, -1); }
-  if (hs === "long" || hs === "braid") { R(20, 8, 24, 3, H); P(31, 8, Hs); P(32, 9, Hs);
-    for (const [x, ln, l] of [[19, 9, -2], [23, 9, -1], [27, 7, -1]]) { clump(x, 9, 6, ln, l); clump(64 - x - 6, 9, 6, ln, -l); }
-    const sl = hs === "long" ? 32 : 13; clump(16, 12, 6, sl, 0); clump(42, 12, 6, sl, 0);
-    if (hs === "braid") { braid(19, 24, 40); braid(45, 24, 40); } }
-  if (hs === "shaggy") { R(19, 7, 26, 4, H); for (const [x, ln, l] of [[18, 9, -1], [22, 10, 1], [26, 8, -1], [30, 9, 1], [34, 10, -1], [38, 8, 1], [41, 9, 1]]) clump(x, 9, 6, ln, l);
-    for (const x of [22, 30, 38]) clump(x, 5, 5, 4, x - 30 >> 2, true); }
-  if (hs === "perm") { R(21, 6, 22, 5, H); curls([[22, 11], [28, 12], [34, 12], [40, 11], [25, 6], [32, 5], [39, 6]], 4); }
-  if (hs === "buzz") { R(20, 8, 24, 3, H); R(19, 11, 3, 6, H); R(42, 11, 3, 6, H); R(24, 11, 16, 1, H); for (let x = 22; x < 43; x += 3) P(x, 9, Hh); R(27, 6, 10, 1, Hh); }
-  if (hs === "dandy") { R(19, 8, 26, 4, H); for (const [x, ln] of [[18, 10], [22, 11], [26, 10], [30, 8], [34, 6]]) clump(x, 10, 7, ln, 5); clump(41, 10, 4, 5, 0); clump(16, 12, 5, 9, 0); clump(43, 12, 5, 9, 0); }
-  if (hs !== "perm" && hs !== "buzz") ring(6, 21, 43);
-  if (ch.glasses) { for (const x of [24, 36]) { R(x - 2, 17, 8, 1, FRAME); R(x - 2, 24, 8, 1, FRAME); R(x - 2, 17, 1, 8, FRAME); R(x + 5, 17, 1, 8, FRAME); P(x + 3, 19, "#ffffff"); P(x + 4, 20, "#ffffff"); } R(30, 20, 4, 1, FRAME); }
+  if (hs === "bob") { cap(34); ring(18, 38, 90); for (let x = 35; x < 90; x += 7) clump(x, 32, 9, 10); clump(32, 36, 11, 36, 4); mclump(32, 36, 11, 36, 4); }
+  if (hs === "long" || hs === "braid") { cap(30); ring(18, 38, 90); R(63, 12, 2, 16, Hs);
+    for (const [x, w, ln, l] of [[35, 12, 22, -5], [44, 11, 21, -3], [53, 10, 16, -2]]) { clump(x, 26, w, ln, l); mclump(x, 26, w, ln, l); }
+    const sl = hs === "long" ? 72 : 28; clump(27, 32, 13, sl, 0); mclump(27, 32, 13, sl, 0);
+    if (hs === "braid") { braid(34, 58, 96); braid(94, 58, 96); } }
+  if (hs === "shaggy") { cap(30); ring(18, 38, 90);
+    for (const [x, l, ln] of [[38, -4, 10], [50, -1, 12], [62, 2, 13], [74, 5, 10]]) clump(x, 22, 10, ln, l, true);
+    for (const [x, w, ln, l] of [[33, 12, 18, -3], [41, 11, 22, 2], [50, 10, 17, -2], [58, 11, 23, 1], [67, 10, 18, 3], [75, 11, 20, -1], [84, 11, 17, 4]]) clump(x, 26, w, ln, l);
+    clump(26, 34, 10, 18, -6); mclump(26, 34, 10, 18, -6); }
+  if (hs === "perm") { cap(34, 24, 30, 42); curls([[45, 35], [55, 37], [65, 36], [75, 37], [84, 35], [52, 26], [64, 24], [76, 26]], 6); }
+  if (hs === "buzz") { cap(34, 24, 29, 42); R(36, 32, 5, 14, H); R(87, 32, 5, 14, H); P(63, 34, H); P(64, 34, H);
+    for (let y = 24; y < 32; y += 4) for (let x = 44; x < 82; x += 6) R(x + (y % 8 ? 3 : 0), y, 3, 1, Hh); }
+  if (hs === "dandy") { cap(30); ring(18, 38, 90);
+    for (const [x, w, ln, l] of [[33, 13, 24, 10], [41, 13, 24, 9], [50, 12, 22, 8], [58, 11, 18, 6], [66, 10, 14, 4]]) clump(x, 26, w, ln, l);
+    clump(80, 28, 10, 14, 2); clump(28, 32, 11, 20, 0); mclump(28, 32, 11, 20, 0); }
+  if (ch.glasses) { for (const x of [46, 71]) { R(x - 3, 45, 17, 2, FRAME); R(x - 3, 62, 17, 2, FRAME); R(x - 3, 45, 2, 19, FRAME); R(x + 12, 45, 2, 19, FRAME);
+    R(x + 8, 48, 2, 1, "#ffffff"); R(x + 9, 49, 1, 2, "#ffffff"); } R(59, 52, 10, 2, FRAME); }
 }
 // 다 그린 뒤 빈 칸 중 그림에 닿은 칸을 이웃 색의 어두운 버전으로 칠함 → 깔끔한 외곽선
 function outline(ctx, N) {
@@ -236,12 +244,12 @@ function teacher(ctx, dir, frame) {
 export function sprite(kind, dir = "d", frame = 0) {
   const key = `${kind}|${dir}|${frame}`;
   if (cache.has(key)) return cache.get(key);
-  const N = kind === "teacher" ? 48 : 64; // 학생 64×64, 보충쌤 48×48(화면에서는 칸 크기에 맞춰 그림)
+  const N = kind === "teacher" ? 48 : 128; // 학생 128×128, 보충쌤 48×48(화면에서는 칸 크기에 맞춰 그림)
   const cv = document.createElement("canvas"); cv.width = cv.height = N;
   const ctx = cv.getContext("2d");
   if (dir === "l") { ctx.translate(N, 0); ctx.scale(-1, 1); } // 왼쪽은 오른쪽 모습을 뒤집음
-  if (frame) ctx.translate(0, -1); // 걸을 때 몸이 살짝 통통 튐
+  if (frame) ctx.translate(0, kind === "teacher" ? -1 : -2); // 걸을 때 몸이 살짝 통통 튐
   if (kind === "teacher") teacher(ctx, dir, frame);
-  else { student(ctx, CHARS[kind] ?? CHARS[0], dir, frame); outline(ctx, N); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalCompositeOperation = "destination-over"; painter(ctx).oval(32, 57, 12, 2, SHADOW); }
+  else { student(ctx, CHARS[kind] ?? CHARS[0], dir, frame); outline(ctx, N); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalCompositeOperation = "destination-over"; painter(ctx).oval(64, 122, 24, 3, SHADOW); }
   cache.set(key, cv); return cv;
 }

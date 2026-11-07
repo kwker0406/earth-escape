@@ -228,7 +228,7 @@ function paintMini(cv, code, members) {
   if (ph.phase === "chase" && mo?.n === ph.n) { g.beginPath(); g.arc(mo.x * S + S / 2, mo.y * S + S / 2, S * 0.6, 0, 7); g.fill(); }
   for (const [kid, v] of members) {
     const q = data.pos[code]?.[kid];
-    if (v.online && q && (q.f ?? 0) === f) { g.imageSmoothingEnabled = false; g.drawImage(sprite(v.avatar ?? 0, q.d || "d"), q.x * S - S / 2, q.y * S - S / 2, S * 2, S * 2); }
+    if (v.online && q && (q.f ?? 0) === f) { g.imageSmoothingEnabled = true; g.drawImage(sprite(v.avatar ?? 0, q.d || "d"), q.x * S - S / 2, q.y * S - S / 2, S * 2, S * 2); }
   }
 }
 

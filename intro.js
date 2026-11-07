@@ -112,7 +112,7 @@ export function startIntro(api) {
       if (step >= 3) { const [px, py] = at(3, 4); ctx.font = `${T * 0.6}px sans-serif`; ctx.fillText(step === 3 ? "🔍" : "✅", px, py); }
       if (step === 6) { ctx.fillStyle = "rgba(60,200,90,0.35)"; ctx.fillRect((16 - cx) * T, (10 - cy) * T, T, T); }
       if (!hidden) { const [px, py] = at(me.rx, me.ry), moving = Math.abs(me.rx - me.x) + Math.abs(me.ry - me.y) > 0.02;
-        ctx.drawImage(sprite(api.avatar, me.d, moving ? 1 + Math.floor(now / 160) % 2 : 0), px - T / 2, py - T * 0.55, T, T);
+        ctx.imageSmoothingEnabled = true; ctx.drawImage(sprite(api.avatar, me.d, moving ? 1 + Math.floor(now / 160) % 2 : 0), px - T / 2, py - T * 0.55, T, T); ctx.imageSmoothingEnabled = false;
         ctx.font = `bold ${Math.max(10, T * 0.32)}px sans-serif`; ctx.fillStyle = "#fff"; ctx.fillText(api.nick, px, py - T * 0.62); }
       else { const [px, py] = at(me.rx, me.ry), gr = ctx.createRadialGradient(px, py, T * 1.2, px, py, T * 3.6);
         gr.addColorStop(0, "rgba(0,0,0,0)"); gr.addColorStop(1, "rgba(0,0,0,0.93)"); ctx.fillStyle = gr; ctx.fillRect(0, 0, VW * T, VH * T); }
@@ -145,7 +145,7 @@ export function playStory(api) {
     const end = () => { cancelAnimationFrame(raf); wrap.remove(); done(); };
     const R = (x, y, w, h, c) => { g.fillStyle = c; g.fillRect(x, y, w, h); };
     const dark = a => R(0, 0, 312, 216, `rgba(5,4,20,${a})`);
-    const who = (k, x, y, d = "u", s = 24) => g.drawImage(sprite(k, d, 0), x, y, s, s);
+    const who = (k, x, y, d = "u", s = 24) => { g.imageSmoothingEnabled = true; g.drawImage(sprite(k, d, 0), x, y, s, s); g.imageSmoothingEnabled = false; };
     const team = () => [api.avatar, ...[3, 2, 7, 4, 0].filter(k => k !== api.avatar).slice(0, 3)]; // 나 + 금발·여·남이 섞인 3명
     const vignette = (a = 0.85, r0 = 40) => { const gr = g.createRadialGradient(156, 108, r0, 156, 108, 190); gr.addColorStop(0, "rgba(0,0,0,0)"); gr.addColorStop(1, `rgba(0,0,0,${a})`); g.fillStyle = gr; g.fillRect(0, 0, 312, 216); };
     const draw = (now) => {
