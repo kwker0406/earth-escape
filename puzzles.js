@@ -8,7 +8,17 @@ export const FLOOR_NAMES = ["지하 · 미로", "1층", "2층", "3층", "4층 ·
 export const MONSTER_FLOORS = [1, 2, 3, 4]; // 지하(튜토리얼)와 옥상에는 괴물이 없음
 
 const SYMBOLS = ["H", "He", "Li", "Be", "B", "C", "N", "O", "F", "Ne", "Na", "Mg", "Al", "Si", "P", "S", "Cl", "Ar", "K", "Ca"];
-// 팀 번호별 최종 암호(원자 번호 1~20번 기호로만 만든 쉬운 단어)
+// 팀 번호별 최종 암호(원자 번호 1~20번 기호로만 만든 쉬운 단어). 난이도마다 조각 수(5·4·3)만큼의 글자
+const WORDS4 = [["B", "O", "O", "K"], ["S", "O", "C", "K"], ["C", "O", "O", "K"], ["S", "H", "O", "P"], ["K", "N", "O", "B"], ["C", "H", "O", "P"]];
+const WORDS3 = [["Li", "O", "N"], ["Ne", "O", "N"], ["B", "O", "Ne"], ["C", "O", "Ne"], ["B", "Ar", "N"], ["S", "Ca", "N"]];
+// 난이도: hard 전체 13개(조각 5) / normal 지하 칠판·사막화 원인 빼고 11개(조각 4, 지하 안 감) / easy 9개(조각 3, 다른 층 단서 없음 → 층을 한 방향으로만 올라감)
+export const LEVELS = { easy: "쉬움", normal: "보통", hard: "어려움" };
+const OFF = { hard: [], normal: ["b1", "f4c"], easy: ["b1", "f4c", "f4a", "f4b"] };
+const PIECES = { hard: ["f1a", "f2b", "f3c", "f4b", "f4c"], normal: ["f1a", "f2b", "f3c", "f4b"], easy: ["f1a", "f2b", "f3c"] };
+const OVERRIDE = {
+  normal: { f3b: { gives: { key: "b", name: "관측실 열쇠" } } },                    // 지하에 안 가므로 관측실 열쇠를 3층에서 바로
+  easy: { f3b: { gives: { key: "b", name: "관측실 열쇠" } }, f1a: { at: {} }, f2b: { at: {} }, r1: { at: {} } }, // at: {} = 단서가 모두 그 층에
+};
 const WORDS = [["B", "O", "O", "K", "S"], ["S", "P", "O", "O", "N"], ["S", "O", "C", "K", "S"], ["S", "H", "O", "C", "K"], ["P", "H", "O", "Ne", "S"], ["C", "H", "O", "C", "O"]];
 // 45쪽 연표(연도 순). 조각 카드에는 사건 이름만 적고 연도는 학생이 떠올려야 한다
 const EVENTS = ["유엔 기후 변화 협약", "교토 의정서", "파리 협정", "IPCC 6차 보고서", "우리나라 탄소 중립 목표"];
@@ -31,12 +41,13 @@ function hide(pz, r, name) {
 export const norm = s => String(s).replace(/\s+/g, "").toUpperCase();
 
 // 팀마다 다른 문제 세트. seed: 반의 씨앗값, code: 팀 코드, no: 팀 번호(1~6)
-export function buildPuzzles(seed, code, no) {
-  const r = rng(seed ^ hash(code));
-  const word = WORDS[(no - 1) % WORDS.length];
-  // 조각 5장: 1~4층을 다 풀 때, 옥상 IPCC 퍼즐을 풀 때 하나씩. 어느 조각이 어느 사건인지는 팀마다 섞음
-  const perm = shuffle([0, 1, 2, 3, 4], r);
-  const pieces = perm.map(e => ({ event: EVENTS[e], num: SYMBOLS.indexOf(word[e]) + 1 }));
+export function buildPuzzles(seed, code, no, level = "hard") {
+  if (!OFF[level]) level = "hard";
+  const r = rng(seed ^ hash(code)), pieceFrom = PIECES[level], k = pieceFrom.length;
+  const word = (k === 5 ? WORDS : k === 4 ? WORDS4 : WORDS3)[(no - 1) % WORDS.length];
+  // 조각 k장. 사건 k개를 골라 연도 순서대로 글자를 하나씩 붙임. 어느 퍼즐이 어느 사건 조각을 주는지는 팀마다 섞음
+  const perm = shuffle([0, 1, 2, 3, 4], r), sel = perm.slice(0, k), byYear = [...sel].sort((a, b) => a - b);
+  const pieces = sel.map(e => ({ event: EVENTS[e], num: SYMBOLS.indexOf(word[byYear.indexOf(e)]) + 1 }));
   const nums = k => shuffle([1, 2, 3, 4, 5, 6, 7, 8, 9], r).slice(0, k);
 
   // 1층: 열수지 장부 — 학습지 36쪽 표의 값
@@ -62,21 +73,21 @@ export function buildPuzzles(seed, code, no) {
     [ // 지하
       { id: "b1", title: "칠판 자물쇠", type: "code", ask: "칠판 쪽지를 모아 자물쇠를 열어라.", answer: "1000",
         clues: ["📝 칠판 쪽지 ①: \"세상에서 가장 뜨거운\"", "📝 칠판 쪽지 ②: \"과일은 무엇일까?\"", "📝 칠판 쪽지 ③: \"정답은 그 과일의 온도를 숫자로\"", "📝 칠판 쪽지 ④: \"복숭아의 한 종류야\""],
-        hints: ["(과일 이름 안에 온도가 숨어 있어.)", "(천… 도…? 복숭아 이름 중에 있었는데.)", "(천도복숭아! 천 도 = 1000)"] },
+        hints: ["(과일 이름 안에 온도가 숨어 있어.)", "(천… 도…? 복숭아 이름 중에 있었는데.)", "(천도복숭아! '천 도'를 숫자로 바꿔 써 봐.)"] },
     ],
     [ // 1층 · 36쪽
       { id: "f1b", title: "복사 평형 저울", type: "code", ask: "지구가 흡수한 에너지만큼 우주로 나가는 두 갈래의 숫자를 작은 수부터 붙여 써라. (예: 3과 40 → 340)", answer: "1258",
         clues: ["🃏 카드: 태양 복사 100 중 지구가 흡수한 것은 70", "🃏 카드: 지표면에서 우주로 바로 빠져나감 12", "🃏 카드: 대기가 우주로 복사 58", "🃏 카드: 지표면 반사 7", "🃏 카드: 대기의 반사 및 산란 23"],
-        hints: ["(반사는 흡수되지 않고 튕겨 나간 거잖아…)", "(흡수한 에너지가 나가는 길은 '복사'나 '손실'이야. 반사 카드는 빼자.)", "(12 + 58 = 70! 작은 수부터 1258)"] },
+        hints: ["(반사는 흡수되지 않고 튕겨 나간 거잖아…)", "(흡수한 에너지가 나가는 길은 '복사'나 '손실'이야. 반사 카드는 빼자.)", "(흡수한 70 = 지표에서 바로 나간 것 + 대기가 복사한 것. 그 두 숫자를 작은 수부터!)"] },
       { id: "f1a", title: "열수지 장부", type: "code", ask: ledger[0] + " (숫자만)", answer: ledger[1],
         clues: ["📒 장부 ①: 대기가 받은 것 — 태양 복사 흡수 23, 지표면 방출 104", "📒 장부 ②: 대기가 받은 것 — 물의 증발 24, 대류와 전도 5 / 대기가 내보낸 것 — 우주로 복사 58",
           "📒 장부 ③: 지표가 받은 것 — 태양 복사 47, 대기의 재복사 98 / 대기가 내보낸 것 — 지표로 재복사 98", "📒 장부 ④: 지표가 내보낸 것 — 지표면 방출 116, 물의 증발 24, 대류와 전도 5"],
-        hints: ["(장부가 네 장으로 찢어져 있어. 팀원 것까지 다 모아야 해.)", "(물어본 곳이 '대기'인지 '지표'인지, '받은 것'인지 '내보낸 것'인지 골라서 더하자.)", "(복사 평형이라 받은 것과 내보낸 것의 합이 같아. 대기는 156, 지표는 145!)"] },
+        hints: ["(장부가 네 장으로 찢어져 있어. 팀원 것까지 다 모아야 해.)", "(물어본 곳이 '대기'인지 '지표'인지, '받은 것'인지 '내보낸 것'인지 골라서 더하자.)", "(복사 평형이라 받은 것의 합 = 내보낸 것의 합. 물어본 쪽 장부만 빠짐없이 더하면 돼!)"] },
     ],
     [ // 2층 · 37쪽
       { id: "f2a", title: "두 개의 온도계", type: "code", ask: "온실 효과 덕분에 지구 평균 기온은 약 몇 ℃ 높아졌을까? (숫자만)", answer: "33",
         clues: ["🌡 온도계 A: 대기가 없는 지구의 평균 기온 약 −18 ℃", "🌡 온도계 B: 대기가 있는 지구의 평균 기온 약 15 ℃", "📝 쪽지: 대기는 지구 복사 에너지를 붙잡았다가 일부를 지표로 되돌린다", "📝 쪽지: 높아진 만큼 = B − A"],
-        hints: ["(온도계 두 개를 비교해야 해.)", "(영하에서 영상으로 올라간 거니까 빼기를 조심!)", "(15 − (−18) = 33)"] },
+        hints: ["(온도계 두 개를 비교해야 해.)", "(영하에서 영상으로 올라간 거니까 빼기를 조심!)", "(B − A인데 A가 영하야. 음수를 빼면 더하기가 돼!)"] },
       { id: "f2b", title: "온실 기체 짝짓기", type: "pair", ask: "온실 기체와, 그 기체가 주로 나오는 곳을 짝지어라.",
         left: ["이산화 탄소", "메테인", "수증기"], right: ["화석 연료를 태울 때·숲이 사라질 때", "가축을 기를 때·유기물이 썩을 때", "바다와 호수에서 물이 증발할 때"],
         clues: ["🔬 메모: 온실 기체 방출량 중 가장 많은 기체", "🔬 메모: 양은 적지만 열을 잘 붙잡는 기체", "🔬 메모: 대기 중 양이 거의 일정한 기체", "🔬 메모: 세 짝을 모두 맞혀야 문이 열린다"],
@@ -118,8 +129,10 @@ export function buildPuzzles(seed, code, no) {
     ],
   ];
   const NAMES = { f3b: "레버", f4a: "문" };
-  return { floors: floors.map(fl => fl.map(pz => ({ ...(pz.type === "code" ? pz : hide(pz, r, NAMES[pz.id])), ...LINKS[pz.id] }))),
-    pieces, pieceFrom: PIECE_FROM, word: word.join("").toUpperCase() };
+  // 뺀 퍼즐은 자리(퍼즐 칸 번호)를 지키려고 off로만 표시 → 지도에 안 보이고 단서도 안 놓임
+  const off = new Set(OFF[level]), over = OVERRIDE[level] ?? {};
+  return { level, floors: floors.map(fl => fl.map(pz => ({ ...(pz.type === "code" ? pz : hide(pz, r, NAMES[pz.id])), ...LINKS[pz.id], ...(over[pz.id] ?? {}), ...(off.has(pz.id) ? { off: true } : {}) }))),
+    pieces, pieceFrom, word: word.join("").toUpperCase() };
 }
 
 // 층을 오가게 만드는 연결. gives: 풀면 얻는 것(up 위층 계단, key 열쇠 문자, flash 손전등),
@@ -138,7 +151,6 @@ const LINKS = {
   f4c: { at: { 2: 0, 3: 0 } },                                                 // 사람 원인 카드 2장은 지하 미로
   r1: { gives: { key: "r", name: "옥상 문" }, at: { 0: 2, 1: 2, 2: 3, 3: 3 } }, // 옥상 비밀번호(IPCC 표)는 아래층에서
 };
-const PIECE_FROM = ["f1a", "f2b", "f3c", "f4b", "f4c"]; // 숫자 조각 5장을 주는 퍼즐(연도 순서와는 무관)
 
 export const ROLL = SYMBOLS.map((s, i) => `${i + 1} ${s}`).join(" · "); // 보충쌤 출석부
 
@@ -150,7 +162,7 @@ export function check(pz, input) {
 
 // 층의 단서를 지도 바닥 칸(시작점에서 3칸 이상)에 팀마다 다르게 흩뿌림 → [{ key, pz, t, p, j, x, y }]
 export function clueSpots(seed, code, floors, f, map) {
-  const all = floors.flatMap((fl, ff) => fl.map(pz => [ff, pz])); // 전체 퍼즐 순번 p로 단서 주인을 돌림
+  const all = floors.flatMap((fl, ff) => fl.map(pz => [ff, pz])).filter(([, pz]) => !pz.off); // 전체 퍼즐 순번 p로 단서 주인을 돌림
   const r = rng(seed ^ hash(code + "spots" + f)), sy = map.findIndex(row => row.includes("S")), sx = sy < 0 ? -99 : map[sy].indexOf("S");
   const far = (x, y) => Math.abs(x - sx) + Math.abs(y - sy) > 2;
   // 단서는 책상(D)·칠판(B) 위. 바로 옆에 바닥(.)이 있어야 함 → 잠긴 방(,)·보충실 안은 빠짐. 책상이 없는 층(지하)은 바닥에

@@ -1,13 +1,14 @@
 // 괴물 '보충쌤'. 등장 시각은 모든 기기가 같은 계산으로 알고(게임 시간 + 반의 씨앗값),
 // 추격하는 20초 동안은 팀원 기기 한 대(방장)가 움직임을 계산해 서버에 올린다.
 export const PLAYER_STEP_MS = 167; // 학생 걸음: 초당 약 6칸
-export const STEP_MS = Math.round(PLAYER_STEP_MS / 1.1); // 학생보다 10% 빠름(152ms)
+export const STEP_MS = Math.round(PLAYER_STEP_MS / 1.2); // 학생보다 20% 빠름(139ms) — 책상을 빙빙 돌아도 결국 따라잡힘
 export const RETARGET_MS = 500;   // 노리는 학생 위치를 0.5초마다 갱신 → 모퉁이에서 따돌릴 틈
 export const DETECT = 6;          // 쫓던 학생을 놓친 순간 직선 6칸 안(벽 너머 O)의 학생을 알아챔
 export const PATROL_DETECT = 12;  // 순찰 중엔 걸어서 12칸 안(벽 너머 X)
 export const PATROL_STEP_MS = 200; // 순찰할 때는 학생보다 느리게 걸음
 export const WARN_MS = 2000, CHASE_MS = 20000, REST_MS = 180000;
-const CYCLE = WARN_MS + CHASE_MS + REST_MS;
+// 난이도 '쉬움': 약 5분마다(2+12+286초) 12초만 추격
+const TIMING = { easy: [12000, 286000] };
 const SAFE_DIST = 4;              // 시작점 주변은 들어가지 않음
 export const HIDE_WARN_MS = 45000, HIDE_MAX_MS = 60000;
 export const HIDE_COOLDOWN_MS = 15000; // 사물함에서 나오면 15초 동안 다시 못 숨음(숨었다 나왔다 하며 괴물 유인 방지)
@@ -16,12 +17,13 @@ const rnd = s => { s = Math.imul(s ^ s >>> 16, 0x45d9f3b); s = Math.imul(s ^ s >
 export const firstAt = seed => 60000 + Math.floor(rnd(seed) * 60000); // 60~120초 사이
 
 // 지금 괴물이 어떤 상태인지: { phase: "rest"|"warn"|"chase", n: 몇 번째 등장, left: 이 상태가 끝날 때까지 ms }
-export function phaseAt(gameMs, seed) {
+export function phaseAt(gameMs, seed, level) {
+  const [chase, rest] = TIMING[level] ?? [CHASE_MS, REST_MS], CYCLE = WARN_MS + chase + rest;
   const t = gameMs - firstAt(seed);
   if (gameMs < 0 || t < 0) return { phase: "rest", n: -1, left: -t };
   const n = Math.floor(t / CYCLE), p = t % CYCLE;
   if (p < WARN_MS) return { phase: "warn", n, left: WARN_MS - p };
-  if (p < WARN_MS + CHASE_MS) return { phase: "chase", n, left: WARN_MS + CHASE_MS - p };
+  if (p < WARN_MS + chase) return { phase: "chase", n, left: WARN_MS + chase - p, chase };
   return { phase: "rest", n, left: CYCLE - p };
 }
 

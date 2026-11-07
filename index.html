@@ -146,10 +146,11 @@
   <div id="avatars"></div>
   <div id="msg" role="alert"></div>
   <button id="go" class="big">입장하기</button>
+  <button id="replay" style="background:none; border:0; color:var(--dim); font-size:14px; text-decoration:underline;">📖 이야기·연습 다시 보기</button>
 </section>
 
 <section id="game" class="screen">
-  <div id="hud"><span><b id="floorName"></b> · ⏱ <b id="timer">--:--</b></span><button id="out">나가기</button></div>
+  <div id="hud"><span><b id="floorName"></b> · ⏱ <b id="timer">--:--</b></span><span><button id="snd" aria-label="소리 켜기·끄기">🔊</button> <button id="out">나가기</button></span></div>
   <div id="mapbox"><canvas id="cv"></canvas><div id="moveBar"></div><div id="alert" role="status" aria-live="polite"></div><div id="status" role="status"></div></div>
   <div id="panel">
     <div id="pad" aria-label="방향키"><span class="u">▲</span><span class="l">◀</span><span class="r">▶</span><span class="d">▼</span></div>
@@ -177,6 +178,8 @@ import { phaseAt, spawnTile, stepToward, nextTarget, patrolStep, sightTiles, hos
 import { JAIL_QUESTIONS } from "./questions.js";
 import { CHARS, sprite } from "./sprites.js";
 import { drawTile } from "./tiles.js";
+import { startIntro, playStory, introDone, resetIntro } from "./intro.js";
+import { initAudio, setMode, toggleMute, isMuted } from "./audio.js";
 import { buildPuzzles, check, clueSpots, clueOwner, dropSpot, scatter, FLOOR_NAMES, MONSTER_FLOORS, ROLL } from "./puzzles.js";
 
 const AVATARS = CHARS.map(c => c.emoji); // 글자 목록용(팀 목록·결과)
@@ -206,6 +209,7 @@ const checkRotate = () => document.body.classList.toggle("land",
   (screen.orientation?.type ?? "").startsWith("landscape") || Math.abs(window.orientation ?? 0) === 90);
 addEventListener("resize", checkRotate); addEventListener("orientationchange", checkRotate); checkRotate();
 let resetWait = false; // 새 게임으로 바뀌는 중
+let intro = null, introAct = null, introBag = null; // 처음 연습 방(intro.js)이 돌아가는 동안은 게임 대신 연습 방을 그림
 let avatar = 0, me = null, mates = {}, dir = null, lastStep = 0, meta = { state: "wait" };
 let mon = null, monR = null, grace = 0, quiz = null; // mon: 서버의 괴물, quiz: { i: 문제 번호, lock: 다시 풀 수 있는 시각 }
 let drawKey = "", hideMs = 0, lastT = 0, mStep = 0, mTarget = null, hideBlockUntil = 0;
@@ -230,11 +234,15 @@ const ERRORS = { NOCODE: "없는 방 코드예요. 선생님께 다시 확인하
 const save = () => net.move(me.x, me.y, me.d, me.jail, me.f, me.seen);
 const toast = (text, ms = 2500) => { toastText = text; toastUntil = net.serverNow() + ms; };
 
+$("snd").textContent = isMuted() ? "🔇" : "🔊";
+$("snd").onclick = () => { $("snd").textContent = toggleMute() ? "🔇" : "🔊"; };
+$("replay").onclick = () => { resetIntro(); $("msg").textContent = "다음에 입장하면 이야기와 연습 방이 다시 나와요."; };
 $("go").onclick = async () => {
   const code = $("code").value.trim().toUpperCase(), nick = $("nick").value.trim();
   if (!/^[A-Z0-9]{4,6}$/.test(code)) return $("msg").textContent = "방 코드는 영어·숫자 4~6자예요.";
   if (!nick) return $("msg").textContent = "닉네임을 입력하세요.";
   $("go").disabled = true; $("msg").textContent = "접속 중…";
+  initAudio(); setMode("ambient"); // 화면을 누른 지금이어야 폰에서 소리가 남
   try {
     const { uid, last } = await net.join(code, nick, avatar);
     try { localStorage.setItem("escape-profile", JSON.stringify({ code, nick, avatar })); } catch {}
@@ -252,7 +260,8 @@ $("go").onclick = async () => {
         resetWait = true; net.freeze(); setTimeout(() => location.reload(), 8000); try { sessionStorage.rejoin = 1; } catch {}
       }
       if (resetWait) { if (!m.resetting) location.reload(); return; }
-      meta = m; if (!PZ && m.seed != null && m.teams?.[code]) PZ = buildPuzzles(m.seed, code, m.teams[code]); });
+      meta = m; const lv = m.levels?.[code] ?? "hard"; // 선생님이 팀마다 고른 난이도(바뀌면 퍼즐을 다시 만듦)
+      if (m.seed != null && m.teams?.[code] && (!PZ || PZ.level !== lv)) { PZ = buildPuzzles(m.seed, code, m.teams[code], lv); spotsF = -1; drawKey = ""; bg.key = ""; } });
     net.onMonster(m => { mon = m; });
     net.onProgress(p => onProgress(p));
     net.onRescue(r => { // 팀원이 보충실 문을 열어 줌
@@ -273,6 +282,11 @@ $("go").onclick = async () => {
     setInterval(tick, 500); tick();
     $("join").classList.remove("on"); $("game").classList.add("on");
     resize(); requestAnimationFrame(loop);
+    if (!introDone()) playStory({ $, el, avatar }).then(() => { // 처음 하는 기기: 이야기 → 혼자 연습 방(서버에는 안 씀)
+      intro = startIntro({ $, el, ctx, getT: () => T, getView: () => [VIEW_W, VIEW_H], getDir: () => dir, stepMs: STEP_MS, avatar, nick,
+        onAct: fn => { introAct = fn; }, onBag: fn => { introBag = fn; },
+        onDone: () => { intro = introAct = introBag = null; drawKey = ""; bg.key = ""; $("alert").classList.remove("on"); $("alert").textContent = ""; } });
+    });
   } catch (e) {
     $("msg").textContent = ERRORS[e.message] || "접속에 실패했어요. 인터넷 연결을 확인하세요."; console.error(e);
   } finally { $("go").disabled = false; }
@@ -306,6 +320,7 @@ function goFloor(f, via) { // 과반수가 모이면 팀 전체가 다른 층의
 // 층 이동: 계단·엘리베이터 1칸 안(초록 칸)에 접속 팀원 과반수가 모이면 이동 버튼이 뜬다
 const gateOf = f => PZ?.floors[f]?.find(p => p.gives?.up);
 function moves(ch, f = me.f) { // 이 계단에서 갈 수 있는 곳
+  if (ch === "Y" && PZ && PZ.floors[0].every(p => p.off)) return []; // 이 난이도는 지하에 안 감
   if (ch === "Y") return f === 3 ? [{ to: 0, label: "🛗 지하로" }] : f === 0 ? [{ to: 3, label: "🛗 3층으로" }] : []; // 엘리베이터는 3층↔지하만
   const out = [], up = "CKR".includes(ch);
   if (up && f >= 1 && f <= 3 && !(f === 3 && ch === "C")) out.push({ to: f + 1, label: `⬆ ${f + 1}층으로`, locked: !solved(gateOf(f)?.id) }); // 3층 중앙 계단은 위로 못 감
@@ -358,7 +373,8 @@ function tick() {
   const ms = Math.max(0, left()), sec = Math.ceil(ms / 1000);
   $("timer").textContent = `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
   $("timer").classList.toggle("low", playing() && sec <= 60);
-  $("floorName").textContent = FLOOR_NAMES[me.f];
+  $("floorName").textContent = intro?.active ? "연습 교실" : FLOOR_NAMES[me.f];
+  if (intro?.active) { $("status").classList.remove("on"); intro.ui(); return; }
   const text = playing() || progress.escaped ? "" : meta.state === "wait" ? "⏳ 선생님이 시작하면 움직일 수 있어요"
     : meta.state === "pause" ? "⏸ 잠깐 멈춤" : "🏁 게임 끝!";
   $("status").textContent = text; $("status").classList.toggle("on", !!text);
@@ -422,7 +438,7 @@ const NEAR = [[0, 0], ...D4];
 function actions() {
   if (!PZ || !me || me.jail) return [];
   const out = [], n = stationNear();
-  if (n && floorPz()[n - 1]) out.push({ label: `🔍 ${floorPz()[n - 1].title}`, run: () => { openPz = floorPz()[n - 1]; pairPick = { sel: null, made: [] }; renderPuzzle(openPz); $("pz").classList.add("on"); } });
+  if (n && floorPz()[n - 1] && !floorPz()[n - 1].off) out.push({ label: `🔍 ${floorPz()[n - 1].title}`, run: () => { openPz = floorPz()[n - 1]; pairPick = { sel: null, made: [] }; renderPuzzle(openPz); $("pz").classList.add("on"); } });
   for (const [id, v] of Object.entries(items)) if (v && !v.by && v.f === me.f && NEAR.some(([dx, dy]) => v.x === me.x + dx && v.y === me.y + dy))
     out.push({ label: `✋ ${ITEM[id]} 줍기`, run: () => { if (mine().length >= BAG_MAX) return toast("🎒 가방이 가득 찼어요(4칸). 하나를 내려놓고 주우세요", 2500);
       net.grabItem(id); toast(`${ITEM[id]}을(를) 주웠다!`, 2500); } });
@@ -436,6 +452,7 @@ function actions() {
   return out;
 }
 $("actBtn").onclick = () => {
+  if (intro?.active) return introAct?.();
   const acts = actions();
   if (acts.length === 1) return acts[0].run();
   if (!acts.length) return;
@@ -457,7 +474,8 @@ function openBoard() {
     el("p", { className: "sub", textContent: clues.length ? `📜 칠판에서 단서 ${clues.length}장을 찾았다! 🎒에 적어 두었어요` : "특별한 건 없어 보인다…" }));
   $("pz").classList.add("on"); drawKey = "";
 }
-$("bagBtn").onclick = () => { renderBag(); $("bag").classList.add("on"); };
+$("bagBtn").onclick = () => {
+  if (intro?.active) return introBag?.(); renderBag(); $("bag").classList.add("on"); };
 function closeModal() { openPz = null; $("pz").classList.remove("on"); $("bag").classList.remove("on"); }
 let pairPick = { sel: null, made: [] }, feedback = null;
 const stableShuffle = (arr, key) => arr.map((v, i) => [v, i, [...key + i].reduce((h, c) => Math.imul(h ^ c.charCodeAt(0), 16777619), 2166136261) >>> 0]).sort((a, b) => a[2] - b[2]);
@@ -469,6 +487,7 @@ function renderPuzzle(pz) {
     el("p", { className: "ask", textContent: pz.ask })];
   if (done) kids.push(el("p", { className: "fb ok", textContent: "✅ 해결!" }));
   else if (pz.needs && !solved(pz.needs)) kids.push(el("p", { className: "fb no", textContent: "🔒 먼저 이 층의 다른 퍼즐을 풀어야 열려요." }));
+  else if (pz.final && piecesHave() < PZ.pieceFrom.length) kids.push(el("p", { className: "fb no", textContent: `🧩 조각이 모자라요 (${piecesHave()}/${PZ.pieceFrom.length}). 조각을 모두 모아야 자물쇠가 돌아가요.` }));
   else if (pz.type === "code" && /^\d+$/.test(pz.answer)) { // 아오오니식 번호 자물쇠: 자리마다 ▲▼로 돌리거나 숫자를 직접 누름
     const wheels = [...pz.answer].map((_, i) => el("input", { className: "dial", inputMode: "numeric", value: "0", ariaLabel: `${i + 1}번째 자리`,
       oninput: e => { e.target.value = e.target.value.replace(/\D/g, "").slice(-1); } }));
@@ -495,13 +514,22 @@ function renderPuzzle(pz) {
       el("button", { className: "close", textContent: "다시 짝짓기", onclick: () => { pairPick = { sel: null, made: [] }; renderPuzzle(pz); } }));
   }
   if (feedback?.id === pz.id && !done) kids.push(el("p", { className: "fb no", textContent: feedback.text }));
-  kids.push(...pz.hints.slice(0, Math.min(tries, 3)).map(h => el("p", { className: "hint", textContent: "💭 " + h })));
+  // 힌트(속마음)는 이 퍼즐 단서를 팀이 모두 주웠을 때만. 단서 없이 틀리기만 해서는 안 나옴
+  const [have, all] = cluesGot(pz), need = PZ.level === "easy" ? Math.ceil(all / 2) : all; // 쉬움은 단서를 반만 모아도 힌트
+  if (have >= need) kids.push(...pz.hints.slice(0, Math.min(tries, 3)).map(h => el("p", { className: "hint", textContent: "💭 " + h })));
+  else if (tries && !done) kids.push(el("p", { className: "sub", textContent: `💭 단서를 ${PZ.level === "easy" ? "조금 더" : "다"} 모으면 생각이 떠오를 것 같다… (팀이 모은 단서 ${have}/${need})` }));
   if (!done) kids.push(el("p", { className: "sub", textContent: "✨ 단서를 주워 🎒에 모으세요. 팀원마다 단서가 달라요 — 서로 말로 알려 주세요!" }));
   box.replaceChildren(...kids);
 }
 
+const piecesHave = () => PZ.pieceFrom.filter(id => solved(id)).length;
+const cluesGot = pz => [pz.clues.filter((_, j) => got[`${pz.id}-${j}`]).length, pz.clues.length]; // 팀 전체(누가 주웠든)
+const WRONG_LOCK_MS = 5000; // 틀리면 이 퍼즐은 팀 전체가 5초 동안 못 돌림(찍기 방지)
 async function submit(pz, input) {
   if (solved(pz.id) || !playing()) return;
+  if (pz.final && piecesHave() < PZ.pieceFrom.length) return;
+  const wait = (progress.lock?.[pz.id] ?? 0) - net.serverNow();
+  if (wait > 0) { feedback = { id: pz.id, text: `⏳ 자물쇠가 뻑뻑하다… ${Math.ceil(wait / 1000)}초 뒤에 다시 돌려 보자` }; return renderPuzzle(pz); }
   const ok = check(pz, input);
   feedback = ok ? null : { id: pz.id, text: "❌ 틀렸어요. 생각이 하나 떠오른 것 같아…" };
   await net.changeProgress(p => {
@@ -511,7 +539,7 @@ async function submit(pz, input) {
       p.solved[pz.id] = true;
       if (pz.gives?.key === "r") (p.keys ??= {}).r = true; // 옥상 문은 비밀번호라 바로 열림(다른 열쇠는 푼 학생 가방으로)
       if (pz.final) { p.escaped = true; p.escapedAt = net.serverNow(); p.escapedMs = Math.max(0, net.gameMs(meta)); } // 순위 = 탈출까지 걸린 게임 시간
-    } else { p.tries[pz.id] = (p.tries[pz.id] || 0) + 1; p.wrong = (p.wrong || 0) + 1; }
+    } else { p.tries[pz.id] = (p.tries[pz.id] || 0) + 1; p.wrong = (p.wrong || 0) + 1; (p.lock ??= {})[pz.id] = net.serverNow() + WRONG_LOCK_MS; }
     return p;
   });
   if (!ok) return;
@@ -627,7 +655,7 @@ function runMonster(now, ph) {
   if (!playing() || ph.phase !== "chase" || now - mStep < (mon?.tid ? MON_STEP_MS : PATROL_STEP_MS)) return;
   const t = net.serverNow(), cur = mon?.n === ph.n && mon.f === me.f ? mon : null;
   const here = Object.fromEntries(Object.entries(mates).filter(([, m]) => sameFloor(m)));
-  if (hostOf(here, cur, t, t - (CHASE_MS - ph.left)) !== me.uid) return;
+  if (hostOf(here, cur, t, t - ((ph.chase ?? CHASE_MS) - ph.left)) !== me.uid) return;
   mStep = now;
   const players = Object.entries(here).filter(([, m]) => m.online && m.x != null)
     .map(([id, m]) => id === me.uid ? { id, x: me.x, y: me.y, jail: me.jail, seen: me.seen } : { id, x: m.x, y: m.y, jail: m.jail, seen: m.seen });
@@ -665,11 +693,19 @@ function glide(o, x, y, v) {
   return [step(o.rx, x), step(o.ry, y)];
 }
 
+// 한 프레임에서 오류가 나도 게임이 멈추지 않게(다음 프레임은 계속). 같은 오류는 콘솔에 한 번만
+let loopErr = "";
 function loop(now) {
-  const ph = MONSTER_FLOORS.includes(me.f) ? phaseAt(net.gameMs(meta), meta.seed ?? 1) : { phase: "rest", n: -1, left: 0 };
+  try { frame(now); } catch (e) { if (String(e) !== loopErr) { loopErr = String(e); console.error(e); } }
+  requestAnimationFrame(loop);
+}
+function frame(now) {
+  if (intro?.active) return intro.frame(now);
+  const ph = MONSTER_FLOORS.includes(me.f) ? phaseAt(net.gameMs(meta), meta.seed ?? 1, PZ?.level) : { phase: "rest", n: -1, left: 0 };
   const active = me.f === 0 ? (mon?.f === 0 && mon.until > net.serverNow() ? mon : null) // 지하: 독단행동 때 20초만
     : ph.phase === "chase" && mon?.n === ph.n && mon.f === me.f && !(mon.w > net.serverNow()) ? mon : null; // 이번 등장·이 층의 괴물만. 문에서 멈춘 2초는 안 보임
   const monLeft = me.f === 0 ? (active ? active.until - net.serverNow() : 0) : ph.left;
+  setMode(active && !me.jail && playing() ? "chase" : "ambient"); // 보충쌤이 이 층에서 쫓는 동안 추격 음악
   if (dir && playing() && !me.jail && now - lastStep >= STEP_MS) {
     // 계속 누르고 있으면 정확히 140ms 간격으로 걷게(화면 주기 때문에 생기는 미세한 멈칫거림 방지)
     lastStep = now - lastStep < STEP_MS * 2 ? lastStep + STEP_MS : now; me.d = dir;
@@ -733,7 +769,6 @@ function loop(now) {
     ...Object.values(mates).flatMap(m => [m.rx, m.ry, m.d, m.online, m.jail, m.nick, m.f])]
     .map(v => typeof v === "number" ? v.toFixed(2) : v).join();
   if (key !== drawKey) { drawKey = key; draw(); }
-  requestAnimationFrame(loop);
 }
 
 // 구역: 벽과 문(+, G, 잠긴 문)으로 나뉜 방·복도. 내가 있는 구역(문 위면 양쪽)만 보인다
@@ -769,7 +804,7 @@ function paintBg(cx, cy, see, dpr) {
       const c = MAP[y][x], px = Math.round((x - cx) * T), py = Math.round((y - cy) * T);
       drawTile(ctx, MAP, me.f, x, y, px, py, T); // 도트 타일(tiles.js)
       const icon = (LOCKS.includes(c) ? (progress.keys?.[c] ? "" : c === "r" ? "🔐" : "🔒")
-        : /\d/.test(c) ? (solved(floorPz()[+c - 1]?.id) ? "✅" : "🔍") : "");
+        : /\d/.test(c) && floorPz()[+c - 1] && !floorPz()[+c - 1].off ? (solved(floorPz()[+c - 1].id) ? "✅" : "🔍") : ""); // 난이도에서 뺀 퍼즐 칸은 표시 없음
       if (icon) { ctx.font = `${T * 0.6}px sans-serif`; ctx.fillText(icon, px + T / 2, py + T / 2); }
     }
   // 모이는 곳: 쓸 수 있는 계단·엘리베이터 1칸 안을 반투명 초록으로
@@ -798,7 +833,7 @@ function draw() {
   ctx.fillStyle = "#05040a"; ctx.fillRect(0, 0, cv.width, cv.height);
   // 바닥·벽·가구·명패·초록 칸은 따로 한 장에 그려 두고, 카메라가 한 칸 넘어가거나 보이는 구역·문·퍼즐 상태가 바뀔 때만 다시 그림
   const fx = Math.floor(cx), fy = Math.floor(cy), dpr = Math.min(2, devicePixelRatio || 1);
-  const bk = [me.f, fx, fy, T, VIEW_W, VIEW_H, dpr, see.sig, JSON.stringify(progress.keys ?? {}), JSON.stringify(progress.solved ?? {})].join("|");
+  const bk = [me.f, fx, fy, T, VIEW_W, VIEW_H, dpr, see.sig, PZ?.level, JSON.stringify(progress.keys ?? {}), JSON.stringify(progress.solved ?? {})].join("|");
   if (bg.key !== bk) { bg.key = bk; paintBg(fx, fy, see, dpr); }
   ctx.drawImage(bg.cv, Math.round((fx - cx) * T), Math.round((fy - cy) * T), bg.cv.width / dpr, bg.cv.height / dpr);
   ctx.textAlign = "center"; ctx.textBaseline = "middle";

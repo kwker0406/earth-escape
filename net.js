@@ -22,7 +22,9 @@ export const serverNow = () => Date.now() + offset;
 // ───────── 학생 ─────────
 // 실패하면 Error("NOCODE" | "KICKED" | "FULL")
 export async function join(code, nick, avatar) {
-  uid = (await signInAnonymously(auth)).user.uid; // 같은 기기는 같은 uid → 재접속하면 같은 자리
+  // 이미 로그인돼 있으면(선생님 구글 계정 포함) 그대로 씀. 익명 로그인을 새로 하면 같은 브라우저의 선생님 로그인이 풀려 버림
+  await auth.authStateReady();
+  uid = auth.currentUser?.uid ?? (await signInAnonymously(auth)).user.uid; // 같은 기기는 같은 uid → 재접속하면 같은 자리
   sid = (await get(R(`codes/${code}`))).val();
   if (!sid) throw new Error("NOCODE");
   team = code;
@@ -118,6 +120,8 @@ export const onKicked = cb => onValue(R(`sessions/${sid}/players/${uid}`), s => 
 export const leave = () => update(memberRef, { online: false }).catch(() => {});
 
 // ───────── 교사 ─────────
+// 이미 구글로 로그인된 브라우저면 그 이메일(없으면 null) — 교사 화면을 다시 열 때 버튼 없이 바로 들어가기용
+export const teacherEmail = async () => { await auth.authStateReady(); return auth.currentUser?.email ?? null; };
 export async function teacherLogin() {
   await auth.authStateReady();
   const u = auth.currentUser?.email ? auth.currentUser : (await signInWithPopup(auth, new GoogleAuthProvider())).user;
@@ -128,7 +132,7 @@ export async function teacherLogin() {
 export const onClasses = (cb, onErr) => onValue(R("classes"), s => cb(s.val() || {}), onErr);
 
 const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // 헷갈리는 O·0·I·1 제외
-export async function createClass(name, teamCount, maxMembers, minutes, jailSec) {
+export async function createClass(name, teamCount, maxMembers, minutes, jailSec, level = "normal") {
   const id = push(R("sessions")).key;
   const used = new Set(Object.keys((await get(R("codes"))).val() || {}));
   const teams = {}, up = {};
@@ -141,6 +145,7 @@ export async function createClass(name, teamCount, maxMembers, minutes, jailSec)
     for (let s = 1; s <= maxMembers; s++) up[`sessions/${id}/teams/${code}/slots/s${s}`] = false;
   }
   up[`sessions/${id}/meta`] = { name, state: "wait", remain: minutes * 60000, minutes, maxMembers, teams, jailSec,
+    levels: Object.fromEntries(Object.keys(teams).map(c => [c, level])),
     seed: Math.floor(Math.random() * 1e9), playedMs: 0 };
   up[`classes/${id}`] = { name, createdAt: serverNow() };
   await update(R("/"), up);
@@ -176,6 +181,7 @@ export async function control(id, action) {
   await update(R(`sessions/${id}/meta`), change);
 }
 
+export const setLevel = (id, code, level) => update(R(`sessions/${id}/meta/levels`), { [code]: level });
 const addMs = action => (action === "plus10" ? 10 : 5) * 60000;
 
 // 처음부터 다시: 팀 진행·단서·물건·괴물·위치·보충 기록을 지우고 시작 전으로. 팀 코드와 자리(접속한 학생)는 그대로, 퍼즐 정답은 새로(seed)
