@@ -128,8 +128,8 @@ const SCENES = [
   { text: "통합과학 시험이 끝난 날 밤…", draw: "night" },
   { text: "시험을 망친 우리는 '밤 보충수업'에 불려 왔다. 학교에는 아무도 없다.", draw: "hall" },
   { text: "보충쌤: \"지구 환경 문제를 다 풀기 전엔… 아무도 집에 못 간다!\"", draw: "teacher" },
-  { text: "보충쌤에게 잡히면 보충수업실로 끌려간다. 사물함에 숨거나, 친구를 구출하자.", draw: "locker" },
-  { text: "학교 곳곳의 단서를 모아 퍼즐을 풀고, 1층 현관 자물쇠를 열어 탈출하자!", draw: "stairs" },
+  { text: "보충쌤에게 잡히면 보충학습실로 끌려간다. 사물함에 숨거나, 친구를 구출하자.", draw: "locker" },
+  { text: "3층까지 올라가 단서를 모으고 손전등을 찾자. 다시 1층으로 내려와 조소실을 지나, 현관 자물쇠를 열면 탈출!", draw: "stairs" },
 ];
 export function playStory(api) {
   const { $, el } = api;
@@ -143,25 +143,69 @@ export function playStory(api) {
     const g = cv.getContext("2d"); g.imageSmoothingEnabled = false;
     let i = 0, typed = 0, raf = 0;
     const end = () => { cancelAnimationFrame(raf); wrap.remove(); done(); };
-    const tiles = (x0, y0, w, h, T = 24) => { for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (MAPS[1][y0 + y]?.[x0 + x]) drawTile(g, MAPS[1], 1, x0 + x, y0 + y, x * T, y * T, T); };
-    const dark = a => { g.fillStyle = `rgba(5,4,20,${a})`; g.fillRect(0, 0, 312, 216); };
+    const R = (x, y, w, h, c) => { g.fillStyle = c; g.fillRect(x, y, w, h); };
+    const dark = a => R(0, 0, 312, 216, `rgba(5,4,20,${a})`);
     const who = (k, x, y, d = "u", s = 24) => g.drawImage(sprite(k, d, 0), x, y, s, s);
+    const team = () => [api.avatar, ...[3, 2, 7, 4, 0].filter(k => k !== api.avatar).slice(0, 3)]; // 나 + 금발·여·남이 섞인 3명
+    const vignette = (a = 0.85, r0 = 40) => { const gr = g.createRadialGradient(156, 108, r0, 156, 108, 190); gr.addColorStop(0, "rgba(0,0,0,0)"); gr.addColorStop(1, `rgba(0,0,0,${a})`); g.fillStyle = gr; g.fillRect(0, 0, 312, 216); };
     const draw = (now) => {
       const sc = SCENES[i];
-      g.fillStyle = "#05040a"; g.fillRect(0, 0, 312, 216);
-      if (sc.draw === "night") { // 밤하늘 + 학교 실루엣
+      R(0, 0, 312, 216, "#05040a");
+      if (sc.draw === "night") { // 밤의 예술고: 3층 건물, 현관과 1층 한 창문만 켜져 있음
         const gr = g.createLinearGradient(0, 0, 0, 216); gr.addColorStop(0, "#0b0a24"); gr.addColorStop(1, "#2a1f3d"); g.fillStyle = gr; g.fillRect(0, 0, 312, 216);
-        for (let k = 0; k < 40; k++) { g.fillStyle = `rgba(255,255,255,${0.4 + 0.4 * Math.sin(now / 400 + k)})`; g.fillRect((k * 73) % 312, (k * 37) % 110, 2, 2); }
-        g.fillStyle = "#f3e9b0"; g.beginPath(); g.arc(250, 40, 16, 0, 7); g.fill(); g.fillStyle = "#0b0a24"; g.beginPath(); g.arc(258, 35, 14, 0, 7); g.fill();
-        g.fillStyle = "#1a1528"; g.fillRect(30, 110, 252, 106); g.fillRect(130, 80, 52, 30);
-        for (let y = 124; y < 200; y += 22) for (let x = 44; x < 270; x += 26) { g.fillStyle = (x * y) % 7 === 0 ? "#ffd86a" : "#2c2440"; g.fillRect(x, y, 12, 10); }
-      } else if (sc.draw === "hall") { tiles(36, 53, 13, 9); dark(0.35); [0, 1, 2, 3].forEach((k, j) => who(j === 0 ? api.avatar : (api.avatar + j * 2) % 8, 108 + j * 26, 150, "u")); }
-      else if (sc.draw === "teacher") { tiles(36, 53, 13, 9); dark(0.5); who("teacher", 140, 60, "d", 32);
-        g.fillStyle = "#fff"; g.fillRect(70, 22, 172, 26); g.fillStyle = "#c02626"; g.font = "bold 12px sans-serif"; g.textAlign = "center"; g.fillText("아무도 집에 못 간다!", 156, 39);
-        [0, 1, 2].forEach(j => who((api.avatar + j * 3) % 8, 110 + j * 30, 160, "u")); }
-      else if (sc.draw === "locker") { tiles(6, 53, 13, 9); dark(0.3); who("teacher", 190, 120, "l", 28);
-        const gr = g.createRadialGradient(156, 150, 20, 156, 150, 150); gr.addColorStop(0, "rgba(0,0,0,0)"); gr.addColorStop(1, "rgba(0,0,0,0.85)"); g.fillStyle = gr; g.fillRect(0, 0, 312, 216); }
-      else { tiles(36, 47, 13, 9); dark(0.25); [0, 1, 2, 3].forEach((k, j) => who(j === 0 ? api.avatar : (api.avatar + j * 2) % 8, 100 + j * 22, 110, "u")); }
+        for (let k = 0; k < 40; k++) R((k * 73) % 312, (k * 37) % 90, 2, 2, `rgba(255,255,255,${0.4 + 0.4 * Math.sin(now / 400 + k)})`);
+        g.fillStyle = "#f3e9b0"; g.beginPath(); g.arc(256, 34, 15, 0, 7); g.fill(); g.fillStyle = "#0b0a24"; g.beginPath(); g.arc(263, 29, 13, 0, 7); g.fill();
+        const cl = (now / 90) % 400 - 80; R(cl, 52, 60, 6, "#2c2850"); R(cl + 10, 47, 34, 6, "#2c2850");                  // 흘러가는 구름
+        R(36, 92, 240, 112, "#1a1528"); R(36, 92, 240, 3, "#2e2742"); R(130, 76, 52, 18, "#1a1528"); R(150, 64, 2, 12, "#2e2742"); // 건물·옥상 탑
+        for (let fl = 0; fl < 3; fl++) for (let k = 0; k < 9; k++) {
+          const x = 48 + k * 25, y = 104 + fl * 30, on = fl === 2 && k === 8 ? 0.6 + 0.4 * Math.sin(now / 120) : 0;   // 1층 맨 오른쪽(조소실) 창문만 깜빡임
+          R(x, y, 14, 16, on ? `rgba(255,216,106,${on})` : "#2c2440"); R(x + 6, y, 2, 16, "#1a1528");
+        }
+        R(140, 176, 32, 28, "#ffd86a"); R(155, 176, 2, 28, "#b8902a"); g.fillStyle = "rgba(255,216,106,0.25)"; g.beginPath(); g.moveTo(140, 204); g.lineTo(172, 204); g.lineTo(196, 216); g.lineTo(116, 216); g.fill(); // 현관 불빛
+        for (const tx of [14, 290]) { R(tx, 150, 6, 56, "#0f0c1a"); g.fillStyle = "#130f22"; g.beginPath(); g.arc(tx + 3, 146, 18, 0, 7); g.fill(); } // 나무
+      } else if (sc.draw === "hall") { // 현관 안: 양옆 신발장, 앞쪽은 캄캄한 복도, 어둠 속 안경 반짝
+        R(0, 0, 312, 120, "#1d1a2a"); R(0, 120, 312, 96, "#3a3448");
+        for (let y = 120; y < 216; y += 16) for (let x = (y / 16) % 2 * 16; x < 312; x += 32) R(x, y, 16, 16, "#433c52");  // 바닥 타일
+        R(110, 20, 92, 100, "#05040a"); R(106, 16, 100, 4, "#4b4468"); R(106, 16, 4, 104, "#4b4468"); R(202, 16, 4, 104, "#4b4468"); // 복도 입구
+        const blink = Math.sin(now / 300) > 0.6; if (blink) { R(146, 58, 6, 3, "#e8f4ff"); R(160, 58, 6, 3, "#e8f4ff"); }              // 어둠 속 안경
+        for (const sx of [0, 222]) for (let r = 0; r < 6; r++) for (let c = 0; c < 4; c++) { R(sx + 6 + c * 21, 20 + r * 17, 19, 15, "#5a6680"); R(sx + 8 + c * 21, 22 + r * 17, 15, 11, "#47526a"); R(sx + 21 + c * 21, 26 + r * 17, 2, 3, "#c9ccd4"); } // 신발장
+        R(116, 150, 80, 50, "#7a2e2a"); for (let y = 154; y < 198; y += 6) R(118, y, 76, 2, "#5e221f");                           // 현관 매트
+        team().forEach((k, j) => who(k, 70 + j * 46, 140, "u", 48));
+        const gr = g.createLinearGradient(0, 216, 0, 100); gr.addColorStop(0, "rgba(160,170,255,0.18)"); gr.addColorStop(1, "rgba(0,0,0,0)"); g.fillStyle = gr; g.fillRect(0, 100, 312, 116); // 뒤쪽 유리문 달빛
+        vignette(0.6, 70);
+      } else if (sc.draw === "teacher") { // 보충쌤 클로즈업: 붉은 조명, 안경 번쩍
+        const gr = g.createRadialGradient(156, 90, 10, 156, 90, 170); gr.addColorStop(0, "#5a1420"); gr.addColorStop(1, "#0a0408"); g.fillStyle = gr; g.fillRect(0, 0, 312, 216);
+        const bob = Math.round(Math.sin(now / 500) * 2);
+        g.drawImage(sprite("teacher", "d", 0), 108, 40 + bob, 96, 96);
+        R(66, 12, 180, 26, "#ffffff"); R(150, 38, 8, 6, "#ffffff"); g.fillStyle = "#c02626"; g.font = "bold 13px sans-serif"; g.textAlign = "center"; g.fillText("아무도 집에 못 간다!", 156, 30);
+        team().forEach((k, j) => who(k, 72 + j * 44, 160, "u", 44));
+        vignette(0.7, 60);
+      } else if (sc.draw === "locker") { // 사물함 안에서 본 바깥: 통풍구 틈 사이로 지나가는 보충쌤
+        R(0, 0, 312, 216, "#0b0a10");
+        const tx = 330 - ((now / 12) % 420);                                                                                    // 오른쪽에서 왼쪽으로 지나감
+        for (const sy of [70, 92, 114, 136]) {
+          g.save(); g.beginPath(); g.rect(40, sy, 232, 12); g.clip();
+          R(40, sy, 232, 12, "#6b6676"); R(40, sy + 8, 232, 4, "#4c4858");                                                      // 틈으로 보이는 복도
+          g.drawImage(sprite("teacher", "l", Math.floor(now / 160) % 2 + 1), tx, 50, 96, 96);
+          g.restore();
+          R(40, sy + 12, 232, 10, "#2a2230"); R(40, sy + 12, 232, 2, "#3a3044");                                                // 철판
+        }
+        R(0, 0, 40, 216, "#2a2230"); R(272, 0, 40, 216, "#2a2230"); R(0, 0, 312, 70, "#2a2230"); R(0, 158, 312, 58, "#2a2230");
+        g.fillStyle = "#d8d0e6"; g.font = "bold 13px sans-serif"; g.textAlign = "center"; g.fillText("(숨 참아…!)", 156, 186);
+        vignette(0.75, 50);
+      } else { // 탈출 경로: 3층 건물 단면 + 움직이는 길
+        R(0, 0, 312, 216, "#14111f");
+        const fy = f => 168 - (f - 1) * 54;                                                                                     // 층마다 바닥 높이
+        for (const f of [1, 2, 3]) { R(28, fy(f) - 46, 256, 46, "#2a2440"); R(28, fy(f), 256, 4, "#4b4468"); g.fillStyle = "#a79cc0"; g.font = "bold 11px sans-serif"; g.textAlign = "left"; g.fillText(`${f}층`, 34, fy(f) - 34); }
+        R(236, 22, 40, 150, "#3a3150"); for (let y = 30; y < 168; y += 8) R(240, y, 32, 3, "#5a5070");                       // 계단
+        g.font = "15px sans-serif"; g.textAlign = "center";
+        g.fillText("🚪", 60, fy(1) - 14); g.fillText("🔦", 150, fy(3) - 14); g.fillText("🗿", 200, fy(1) - 14); g.fillText("🔐", 100, fy(1) - 14);
+        g.fillStyle = "#cfc6e6"; g.font = "10px sans-serif"; g.fillText("현관", 60, fy(1) - 2); g.fillText("손전등", 150, fy(3) - 2); g.fillText("조소실", 200, fy(1) - 2); g.fillText("탈출!", 100, fy(1) - 2);
+        const P = [[60, fy(1)], [250, fy(1)], [250, fy(2)], [250, fy(3)], [150, fy(3)], [250, fy(3)], [250, fy(1)], [200, fy(1)], [100, fy(1)]].map(([x, y]) => [x, y - 22]);
+        g.strokeStyle = "rgba(255,216,106,0.5)"; g.setLineDash([4, 4]); g.lineWidth = 2; g.beginPath(); P.forEach(([x, y], k) => k ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke(); g.setLineDash([]);
+        const seg = (now / 700) % (P.length - 1), k = Math.floor(seg), t = seg - k, [x0, y0] = P[k], [x1, y1] = P[k + 1];  // 길을 따라 걷는 나
+        who(api.avatar, x0 + (x1 - x0) * t - 12, y0 + (y1 - y0) * t - 14, x1 > x0 ? "r" : x1 < x0 ? "l" : "u", 24);
+      }
       if (sc.draw !== "night" && sc.draw !== "teacher") { g.fillStyle = "rgba(0,0,0,0.15)"; for (let y = 0; y < 216; y += 3) g.fillRect(0, y, 312, 1); } // 옛날 화면 줄무늬
       typed = Math.min(sc.text.length, typed + 0.6); cap.textContent = sc.text.slice(0, Math.floor(typed));
       raf = requestAnimationFrame(draw);
