@@ -44,7 +44,8 @@
   #timer.low { color:#ff8f8f; }
   #alert { position:absolute; top:8px; left:50%; transform:translateX(-50%); z-index:2; display:none; max-width:92%;
     padding:6px 14px; border-radius:10px; background:#a01c1ce8; color:#fff; font-size:15px; font-weight:700; text-align:center; pointer-events:none; }
-  #alert.on { display:block; }
+  #alert.on { display:block; white-space:pre-line; }
+  #alert:not(.mon) { background:#2a2440e8; } /* 보충쌤이 없을 때 알림은 차분한 색, 보충쌤 시간엔 빨강 */
   /* 괴물이 3칸 안에 있으면 지도 테두리가 붉게 깜빡임(방향키에 가려진 구석 대비) */
   #mapbox.danger::after { content:""; position:absolute; inset:0; pointer-events:none; z-index:1;
     box-shadow: inset 0 0 0 4px #ff3b3b, inset 0 0 36px #ff3b3b99; animation: blink .5s infinite alternate; }
@@ -94,9 +95,6 @@
   .wheel button { width:56px; padding:8px 0; font-size:18px; border-radius:10px; border:1px solid var(--line); background:var(--panel); color:var(--text); }
   .dial { width:56px; height:56px; font-size:28px; font-weight:700; text-align:center; border-radius:10px; border:2px solid var(--hot); background:#0d0b14; color:#fff; }
   .drop { margin:6px 6px 0 0; padding:8px 10px; font-size:14px; border:0; border-radius:10px; background:#3a5f8a; color:#fff; }
-  #moveBar { position:absolute; left:0; right:0; bottom:10px; display:flex; gap:8px; justify-content:center; z-index:3; pointer-events:none; }
-  #moveBar button { pointer-events:auto; padding:12px 16px; font-size:16px; font-weight:700; border:0; border-radius:12px; background:#2e9e5b; color:#fff; box-shadow:0 2px 8px #0008; }
-  #moveBar button:disabled { background:#555; color:#ccc; }
   #side { display:flex; flex-direction:column; gap:8px; align-items:flex-end; max-width:48%; }
   #acts { display:flex; gap:6px; }
   #acts button { padding:10px 12px; font-size:15px; font-weight:700; border-radius:12px; border:0; background:var(--hot); color:#fff; }
@@ -108,10 +106,37 @@
   .modal.on { display:flex; }
   .modal h2 { margin:0; font-size:21px; } .modal .sub { margin:0; color:var(--dim); font-size:14px; }
   .modal .ask { font-size:17px; font-weight:700; line-height:1.5; margin:0; }
+  /* 스크롤해도 닫기 버튼이 맨 위에 남게(폰 노치 아래로) */
+  .modal > .close:first-child { position:sticky; top:env(safe-area-inset-top); z-index:3; background:#16131f; box-shadow:0 4px 10px #16131f; }
+  .modal > .bar { position:sticky; top:0; z-index:3; display:flex; gap:8px; align-items:center; flex:none;
+    margin:calc(-1 * max(20px, env(safe-area-inset-top))) -18px 0; padding:max(10px, env(safe-area-inset-top)) 18px 10px; background:#16131ff8; border-bottom:1px solid var(--line); }
+  .modal > .bar h2 { flex:1; font-size:19px; } .modal > .bar .close { align-self:auto; }
+  .modal h3 { margin:6px 0 0; font-size:17px; }
+  .modal .tab { padding:8px 12px; border-radius:10px; border:1px solid var(--line); background:var(--panel); color:var(--text); font-size:15px; font-weight:700; }
+  .modal .tab.on { border-color:var(--hot); background:#3a2a2a; }
+  .modal .tabs { display:flex; gap:6px; flex-wrap:wrap; }
+  .modal .mmap { overflow:auto; touch-action:pan-x pan-y; border-radius:10px; background:#0d0b14; padding:8px; align-self:center; max-width:100%; }
+  .pzc { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:8px 10px; flex:none; }
+  .pzc .card { margin-top:6px; }
+  .pzc summary { cursor:pointer; font-size:15px; line-height:1.5; } .pzc summary span { color:var(--dim); font-size:13px; }
+  .pzc.done { opacity:.6; } .pzc .card { background:#2b2440; }
   .modal .close { align-self:flex-end; background:none; border:1px solid var(--line); color:var(--dim); border-radius:10px; padding:8px 14px; font-size:15px; }
   .modal .opt { display:block; width:100%; padding:13px; font-size:16px; text-align:left; border-radius:12px; border:2px solid var(--line); background:var(--panel); color:var(--text); }
   .modal .opt.sel { border-color:var(--hot); }
   .modal .opt.done { opacity:.45; }
+  .levers { display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; }
+  .lever { display:flex; flex-direction:column; align-items:center; gap:6px; padding:10px 4px; border-radius:12px; border:2px solid var(--line); background:#0d0b14; color:var(--text); }
+  .lever .knob { width:44px; height:64px; display:grid; border-radius:10px; background:linear-gradient(#3a3150, #221d30); font-size:24px; }
+  .lever.up .knob { place-items:start center; color:#ffd84a; } .lever.down .knob { place-items:end center; color:#7fc4ff; }
+  .lever small { font-size:13px; color:var(--dim); }
+  .wires { display:grid; grid-template-columns:36px repeat(4, 1fr) 36px; gap:6px; align-items:center; justify-items:center; font-size:26px; }
+  .wire { width:100%; aspect-ratio:1; font-size:40px; line-height:1; border-radius:10px; border:2px solid var(--line); background:#0d0b14; color:#6a6280; }
+  .wire { -webkit-text-stroke:3px currentColor; } .wire.on { color:#ffd84a; border-color:#8a7a2a; }
+  .bulb.off { opacity:.3; filter:grayscale(1); }
+  .pic { display:grid; grid-template-columns:repeat(3, 1fr); gap:3px; max-width:330px; width:100%; align-self:center; }
+  .piece { aspect-ratio:1; border:0; border-radius:4px; background-size:cover; }
+  .piece.sel { outline:4px solid var(--hot); outline-offset:-4px; }
+  .seqshow { min-height:26px; font-size:20px; text-align:center; margin:0; color:#ffd84a; }
   .modal .row2 { display:flex; gap:8px; }
   .modal .row2 .field { flex:1; }
   .modal .go { padding:13px 18px; font-size:16px; font-weight:700; border:0; border-radius:12px; background:var(--hot); color:#fff; }
@@ -151,7 +176,7 @@
 
 <section id="game" class="screen">
   <div id="hud"><span><b id="floorName"></b> · ⏱ <b id="timer">--:--</b></span><span><button id="snd" aria-label="소리 켜기·끄기">🔊</button> <button id="out">나가기</button></span></div>
-  <div id="mapbox"><canvas id="cv"></canvas><div id="moveBar"></div><div id="alert" role="status" aria-live="polite"></div><div id="status" role="status"></div></div>
+  <div id="mapbox"><canvas id="cv"></canvas><div id="alert" role="status" aria-live="polite"></div><div id="status" role="status"></div></div>
   <div id="panel">
     <div id="pad" aria-label="방향키"><span class="u">▲</span><span class="l">◀</span><span class="r">▶</span><span class="d">▼</span></div>
     <div id="side">
@@ -174,13 +199,14 @@
 import * as net from "./net.js";
 import { MAPS, DARK, ROOMS } from "./maps.js";
 import { phaseAt, spawnTile, stepToward, nextTarget, patrolStep, sightTiles, hostOf, STEP_MS as MON_STEP_MS, PATROL_STEP_MS,
-  HIDE_WARN_MS, HIDE_MAX_MS, HIDE_COOLDOWN_MS, PLAYER_STEP_MS, CHASE_MS, SEEK_DIST, seekStep, doorWait } from "./monsters.js";
+  HIDE_WARN_MS, HIDE_MAX_MS, HIDE_COOLDOWN_MS, PLAYER_STEP_MS, CHASE_MS, SEEK_DIST, seekStep, doorWait, LOOK_MS } from "./monsters.js";
 import { JAIL_QUESTIONS } from "./questions.js";
 import { CHARS, sprite } from "./sprites.js";
 import { drawTile } from "./tiles.js";
 import { startIntro, playStory, introDone, resetIntro } from "./intro.js";
 import { initAudio, setMode, toggleMute, isMuted } from "./audio.js";
-import { buildPuzzles, check, clueSpots, clueOwner, dropSpot, scatter, FLOOR_NAMES, MONSTER_FLOORS, ROLL } from "./puzzles.js";
+import { buildPuzzles, check, clueSpots, clueOwner, dropSpot, scatter, miniGameOf, FLOOR_NAMES, MONSTER_FLOORS, ROLL } from "./puzzles.js";
+import * as mini from "./minigames.js";
 
 const AVATARS = CHARS.map(c => c.emoji); // 글자 목록용(팀 목록·결과)
 let VIEW_W = 10, VIEW_H = 12; // resize()가 화면에 맞춰 다시 정함: 세로는 가로 10칸, 가로는 세로 8칸 기준
@@ -189,6 +215,8 @@ const DIRS = { u:[0,-1], d:[0,1], l:[-1,0], r:[1,0] };
 const D4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 const find = (map, ch) => { for (let y = 0; y < map.length; y++) { const x = map[y].indexOf(ch); if (x >= 0) return { x, y }; } };
 const STAIRS = "CKRYVWX", LOCKS = "abcr"; // 올라가는 계단 C 중앙 K 모서리 R 우측, 내려가는 계단 V·W·X(같은 순서), Y 엘리베이터 / 열쇠 문 a·b·c, 옥상 문 r
+const zoneKind = ch => ch === "Y" ? "lift" : "CKR".includes(ch) ? "up" : "down";
+const ZONE_COLOR = { up: "rgba(150, 235, 160, 0.2)", down: "rgba(130, 190, 255, 0.24)", lift: "rgba(205, 170, 255, 0.24)" };
 const PAIR = { C: "V", V: "C", K: "W", W: "K", R: "X", X: "R" }; // 같은 계단실의 위·아래 계단
 // 층에 들어설 때 서는 칸: 타고 온 계단(엘리베이터)과 같은 것 옆. 그 층에 없으면 모서리 계단, 처음엔 현관(S)
 function arrival(map, via) {
@@ -212,7 +240,7 @@ let resetWait = false; // 새 게임으로 바뀌는 중
 let intro = null, introAct = null, introBag = null; // 처음 연습 방(intro.js)이 돌아가는 동안은 게임 대신 연습 방을 그림
 let avatar = 0, me = null, mates = {}, dir = null, lastStep = 0, meta = { state: "wait" };
 let mon = null, monR = null, grace = 0, quiz = null; // mon: 서버의 괴물, quiz: { i: 문제 번호, lock: 다시 풀 수 있는 시각 }
-let drawKey = "", hideMs = 0, lastT = 0, mStep = 0, mTarget = null, hideBlockUntil = 0;
+let lastStair = 0, drawKey = "", hideMs = 0, lastT = 0, mStep = 0, mTarget = null, hideBlockUntil = 0;
 let PZ = null, progress = { ...net.NEW_PROGRESS }, hint = null, toastText = "", toastUntil = 0, openPz = null, got = {};
 let items = {}, flash = null, darkSince = null, darkGrace = 0, jailLine = ""; // 물건: { id: { by: 가진 학생 } 또는 떨어진 자리 { by: null, x, y, f } }
 const ITEM = { flash: "🔦 손전등", a: "🔑 온실 실험실 열쇠", b: "🔑 관측실 열쇠", c: "🔑 표본실 열쇠" }, BAG_MAX = 4;
@@ -253,7 +281,7 @@ $("go").onclick = async () => {
     // 새로고침으로 숨기 제한·재사용 대기를 초기화하지 못하게 기기에 저장해 둔 값을 되살림
     try { ({ hideMs = 0, hideBlockUntil = 0 } = JSON.parse(localStorage.getItem("escape-hide-" + uid + code)) || {}); } catch {}
     save();
-    net.onTeam(t => { for (const id in t) if (mates[id]) Object.assign(t[id], { rx: mates[id].rx, ry: mates[id].ry }); mates = t; drawTeam(); if ($("bag").classList.contains("on")) renderBag(); });
+    net.onTeam(t => { for (const id in t) if (mates[id]) Object.assign(t[id], { rx: mates[id].rx, ry: mates[id].ry }); mates = t; if ((drawTeam() || bagView === "map") && $("bag").classList.contains("on")) bagSoon(); }); // 팀원이 걸을 때마다 다시 그리지 않음
     net.onMeta(m => {
       // 선생님이 '처음부터 다시'를 누름 → 쓰기를 멈추고, 선생님 쪽 지우기가 끝나면(resetting 해제) 새로고침해 새 게임으로
       if (PZ && m.seed != null && meta.seed != null && m.seed !== meta.seed && !resetWait) {
@@ -317,7 +345,7 @@ function goFloor(f, via) { // 과반수가 모이면 팀 전체가 다른 층의
   me.rx = me.x; me.ry = me.y; closeModal(); save(); drawKey = "";
   toast(`${via === "Y" ? "🛗" : "🪜"} ${FLOOR_NAMES[f]}에 도착!`, 3000);
 }
-// 층 이동: 계단·엘리베이터 1칸 안(초록 칸)에 접속 팀원 과반수가 모이면 이동 버튼이 뜬다
+// 층 이동: 계단·엘리베이터 1칸 안(색칠된 칸)에 접속 팀원 과반수가 3초 머물면 버튼 없이 자동으로 이동
 const gateOf = f => PZ?.floors[f]?.find(p => p.gives?.up);
 function moves(ch, f = me.f) { // 이 계단에서 갈 수 있는 곳
   if (ch === "Y" && PZ && PZ.floors[0].every(p => p.off)) return []; // 이 난이도는 지하에 안 감
@@ -331,23 +359,25 @@ const zoneAt = (x, y) => { let best = null; // 1칸 안의 쓸 수 있는 계단
   for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const c = MAP[y + dy]?.[x + dx];
     if (c && STAIRS.includes(c) && moves(c).length && (!best || Math.abs(dx) + Math.abs(dy) < best.d)) best = { ch: c, x: x + dx, y: y + dy, d: Math.abs(dx) + Math.abs(dy) }; }
   return best; };
-let stairWait = "";
+const STAIR_WAIT_MS = 3000;
+let stairWait = "", stairSince = 0, stairKey = "";
+const flashBelow = () => flash && !flash.by && flash.f === 0; // 지하에 떨어뜨리고 올라온 손전등(엘리베이터 앞에 있음)
 function stairCheck() {
-  const z = zoneAt(me.x, me.y), bar = $("moveBar"), clear = () => { bar.replaceChildren(); bar.dataset.sig = ""; };
-  if (!z || !playing() || me.jail) { stairWait = ""; return clear(); }
-  const ids = onlineIds(), need = Math.floor(ids.length / 2) + 1; // 과반수
-  const here = ids.filter(id => { const m = id === me.uid ? me : mates[id]; return m && sameFloor(m) && !m.jail && zoneAt(m.x, m.y)?.ch === z.ch; }).length; // 같은 계단(2칸 중 어느 칸 옆이든)
-  if (here < need) { stairWait = `🟩 모이는 중 (${here}/${ids.length}명 · ${need}명이 모이면 이동)`; return clear(); }
-  stairWait = "";
-  const opts = moves(z.ch), sig = z.ch + opts.map(m => m.to + "" + !!m.locked).join();
-  if (bar.dataset.sig === sig) return; bar.dataset.sig = sig;
-  bar.replaceChildren(...opts.map(m => el("button", { textContent: m.locked ? `🔒 ${m.to}층 계단 잠김` : m.label, disabled: !!m.locked, onclick: () => goTo(z.ch, m.to) })));
+  const z = zoneAt(me.x, me.y);
+  if (!z || !playing() || me.jail) { stairWait = ""; stairSince = 0; return; }
+  const m = moves(z.ch)[0], [icon, ...rest] = m.label.split(" "), dest = rest.join(" "), ids = onlineIds(), need = Math.floor(ids.length / 2) + 1; // 과반수
+  const here = ids.filter(id => { const p = id === me.uid ? me : mates[id]; return p && sameFloor(p) && !p.jail && zoneAt(p.x, p.y)?.ch === z.ch; }).length; // 같은 계단(2칸 중 어느 칸 옆이든)
+  const why = m.locked ? `🔒 ${m.to}층 계단이 잠겨 있어요. 이 층 관문 퍼즐을 풀어야 열려요`
+    : z.ch === "Y" && m.to === 0 && !flashHeld() && !flashBelow() ? "🔦 너무 어두워요. 손전등을 든 사람이 있어야 내려갈 수 있어요" : "";
+  if (why || here < need) { stairWait = why || `${icon} 모이는 중 (${here}/${ids.length}명 · ${need}명이 모이면 ${dest} 이동)`; stairSince = 0; return; }
+  const key = z.ch + m.to; if (stairKey !== key || !stairSince) { stairKey = key; stairSince = net.serverNow(); }
+  const leftMs = STAIR_WAIT_MS - (net.serverNow() - stairSince);
+  stairWait = `${icon} ${Math.max(1, Math.ceil(leftMs / 1000))}초 뒤 ${dest} 이동! (나가면 취소)`;
+  if (leftMs <= 0) { stairSince = 0; goTo(z.ch, m.to); }
 }
 function goTo(ch, to) {
-  const flashBelow = flash && !flash.by && flash.f === 0; // 지하에 떨어뜨리고 올라온 손전등(엘리베이터 앞에 있음)
-  if (ch === "Y" && to === 0 && !flashHeld() && !flashBelow) return toast("🔦 너무 어두워요. 손전등을 든 사람이 있어야 내려갈 수 있어요", 3000);
   const f = me.f;
-  if (f === 0 && flashBelow) dropAt("flash", 0, -1, -1, "Y"); // 지하에 두고 가면 엘리베이터 2칸 안으로 옮겨 둠(다시 내려올 때 빛이 있게)
+  if (f === 0 && flashBelow()) dropAt("flash", 0, -1, -1, "Y"); // 지하에 두고 가면 엘리베이터 2칸 안으로 옮겨 둠(다시 내려올 때 빛이 있게)
   net.changeProgress(p => (p.at ?? 1) !== f ? undefined : { ...p, at: to, via: ch, floor: Math.max(p.floor ?? 0, to) });
 }
 // 손전등 빛: 든 사람(이 층) 또는 떨어진 자리. 지하에서 이 빛 3칸 밖으로 나가면 독단행동
@@ -379,8 +409,8 @@ function tick() {
     : meta.state === "pause" ? "⏸ 잠깐 멈춤" : "🏁 게임 끝!";
   $("status").textContent = text; $("status").classList.toggle("on", !!text);
   const acts = actions(); $("actBtn").disabled = !acts.length; // 버튼 이름은 '조사' 그대로(할 일이 하나면 그 일을 바로)
-  $("actBtn").textContent = acts.length > 1 ? `🔍 조사 (${acts.length})` : acts[0]?.label.startsWith("🔓") ? "🔓 구출" : acts[0]?.label.startsWith("✋") ? "✋ 줍기" : acts[0]?.label.startsWith("📜") ? "📜 단서" : acts[0]?.label.startsWith("🧑‍🏫") ? "🧑‍🏫 칠판" : "🔍 조사";
-  stairCheck(); jailTick();
+  $("actBtn").textContent = acts.length > 1 ? `🔍 조사 (${acts.length})` : acts[0]?.label.startsWith("🔓") ? "🔓 구출" : acts[0]?.label.startsWith("✋") ? "✋ 줍기" : acts[0]?.label.startsWith("📜") ? "📜 단서" : acts[0]?.label.startsWith("🧑‍🏫") ? "🧑‍🏫 칠판" : acts[0]?.label.startsWith("🎲") ? "🎲 책상" : "🔍 조사";
+  jailTick();
   // 물건을 가진 학생이 나가거나 내보내지면 떨어뜨림(물건이 사라져 진행이 막히지 않게). 팀 목록을 받은 뒤에만
   if (mates[me.uid]) for (const [id, v] of Object.entries(items)) {
     if (!v?.by || v.by === me.uid || mates[v.by]?.online) continue;
@@ -414,10 +444,10 @@ function escapeJail() { // 보충실 문 바로 앞 복도로 나감
 }
 
 let teamSig = "";
-function drawTeam() { // 팀원이 한 칸 움직일 때마다 불리므로, 이름·접속·층·보충실 상태가 바뀔 때만 다시 그림
+function drawTeam() { // 팀원이 한 칸 움직일 때마다 불리므로, 이름·접속·층·보충실 상태가 바뀔 때만 다시 그림(바뀌었으면 true)
   const hid = m => MAPS[m.f ?? 1]?.[m.y]?.[m.x] === "H"; // 사물함에 숨음
   const sig = JSON.stringify(Object.entries(mates).map(([id, m]) => [id, m.nick, m.avatar, m.online, !!m.jail, m.f, hid(m)]));
-  if (sig === teamSig) return; teamSig = sig;
+  if (sig === teamSig) return false; teamSig = sig;
   $("team").replaceChildren(...Object.entries(mates).map(([id, m]) => {
     const st = !m.online ? "💤" : m.jail ? "🔒" : hid(m) ? "🫣" : ""; // 접속 끊김·보충실 감금·숨음
     const li = el("li", {}, el("span", { textContent: `${AVATARS[m.avatar] ?? "❔"} ${m.nick}${id === me.uid ? " (나)" : ""}` }),
@@ -425,6 +455,7 @@ function drawTeam() { // 팀원이 한 칸 움직일 때마다 불리므로, 이
     if (!m.online) li.classList.add("off");
     return li;
   }));
+  return true;
 }
 
 // ── 퍼즐 창 ──
@@ -438,15 +469,17 @@ const NEAR = [[0, 0], ...D4];
 function actions() {
   if (!PZ || !me || me.jail) return [];
   const out = [], n = stationNear();
-  if (n && floorPz()[n - 1] && !floorPz()[n - 1].off) out.push({ label: `🔍 ${floorPz()[n - 1].title}`, run: () => { openPz = floorPz()[n - 1]; pairPick = { sel: null, made: [] }; renderPuzzle(openPz); $("pz").classList.add("on"); } });
+  if (n && floorPz()[n - 1] && !floorPz()[n - 1].off) out.push({ label: `🔍 ${floorPz()[n - 1].title}`, run: () => { openPz = floorPz()[n - 1]; pairPick = { sel: null, made: [] }; leverPick = []; seqPick = []; renderPuzzle(openPz); $("pz").classList.add("on"); } });
   for (const [id, v] of Object.entries(items)) if (v && !v.by && v.f === me.f && NEAR.some(([dx, dy]) => v.x === me.x + dx && v.y === me.y + dy))
     out.push({ label: `✋ ${ITEM[id]} 줍기`, run: () => { if (mine().length >= BAG_MAX) return toast("🎒 가방이 가득 찼어요(4칸). 하나를 내려놓고 주우세요", 2500);
       net.grabItem(id); toast(`${ITEM[id]}을(를) 주웠다!`, 2500); } });
   const B = NEAR.map(([dx, dy]) => [me.x + dx, me.y + dy]).find(([x, y]) => MAP[y]?.[x] === "B");
   if (B) out.push({ label: "🧑‍🏫 칠판 보기", run: () => openBoard() });
   const near = mySparkles().filter(c => MAP[c.y][c.x] !== "B" && NEAR.some(([dx, dy]) => c.x === me.x + dx && c.y === me.y + dy)); // 칠판 단서는 칠판 보기에서
-  if (near.length) out.push({ label: `📜 단서 줍기${near.length > 1 ? ` (${near.length}장)` : ""}`, run: () => {
-    for (const c of near) { got[c.key] = me.uid; net.pickClue(c.key); } toast("📜 단서를 주웠다! 🎒에서 확인하세요", 2500); } });
+  const free = near.filter(c => !miniGameOf(c, MAP, salt())), locked = near.filter(c => miniGameOf(c, MAP, salt())); // 책상 미니게임을 풀어야 나오는 단서
+  if (free.length) out.push({ label: `📜 단서 줍기${free.length > 1 ? ` (${free.length}장)` : ""}`, run: () => {
+    for (const c of free) { got[c.key] = me.uid; net.pickClue(c.key); } toast("📜 단서를 주웠다! 🎒에서 확인하세요", 2500); } });
+  for (const c of locked) out.push({ label: `🎲 ${mini.TITLES[miniGameOf(c, MAP, salt())]}`, run: () => openMini(c) });
   if (D4.some(([dx, dy]) => MAP[me.y + dy]?.[me.x + dx] === "G") && Object.entries(mates).some(([id, m]) => id !== me.uid && m.online && m.jail && sameFloor(m)))
     out.push({ label: "🔓 보충실 친구 구출", run: () => { net.rescue(me.f); toast("🔓 보충실 문을 열었다!", 2500); } });
   return out;
@@ -461,7 +494,7 @@ $("actBtn").onclick = () => {
   $("pz").classList.add("on");
 };
 // 칠판 확대: 이 교실 칠판에 놓인 내 단서는 노란 분필로 보이고 그 자리에서 주워짐. 없으면 수업 글씨만
-const BOARD_LINES = ["숙제: 학습지 36~45쪽 풀어 오기", "기후 변화의 원인 3가지는?", "엘니뇨 ↔ 라니냐 비교하기", "온실 기체: CO₂, CH₄, N₂O …", "떠든 사람: (비어 있음)", "다음 시간 쪽지 시험!"];
+const BOARD_LINES = ["숙제: 학습지 36~45쪽 풀어 오기", "기후 변화의 원인 3가지는?", "엘니뇨 ↔ 라니냐 비교하기", "온실 기체: H₂O, CO₂, CH₄, N₂O …", "떠든 사람: (비어 있음)", "다음 시간 쪽지 시험!"];
 function openBoard() {
   const id = regions(MAP), W = MAP[0].length, myR = id[me.y * W + me.x];
   const room = (ROOMS[me.f] ?? []).find(rm => D4.some(([dx, dy]) => id[(rm.door[1] + dy) * W + rm.door[0] + dx] === myR))?.name ?? "교실";
@@ -474,10 +507,16 @@ function openBoard() {
     el("p", { className: "sub", textContent: clues.length ? `📜 칠판에서 단서 ${clues.length}장을 찾았다! 🎒에 적어 두었어요` : "특별한 건 없어 보인다…" }));
   $("pz").classList.add("on"); drawKey = "";
 }
+const salt = () => `${meta.seed}${me.code}`; // 팀마다 미니게임 책상이 다르게
+function openMini(c) { // 미니게임을 풀면 그 책상의 단서를 얻음
+  const box = $("pz"), done = () => { closeModal(); if (got[c.key]) return; got[c.key] = me.uid; net.pickClue(c.key); toast("📜 단서를 얻었다! 🎒에서 확인하세요", 2500); };
+  mini.open({ el, box, kind: miniGameOf(c, MAP, salt()), seed: (meta.seed ?? 1) ^ [...c.key].reduce((h, ch) => Math.imul(h ^ ch.charCodeAt(0), 16777619), 2166136261), onWin: done, onClose: closeModal });
+  box.classList.add("on");
+}
 $("bagBtn").onclick = () => {
-  if (intro?.active) return introBag?.(); renderBag(); $("bag").classList.add("on"); };
+  if (intro?.active) return introBag?.(); bagView = "clues"; $("bag").classList.add("on"); renderBag(); };
 function closeModal() { openPz = null; $("pz").classList.remove("on"); $("bag").classList.remove("on"); }
-let pairPick = { sel: null, made: [] }, feedback = null;
+let pairPick = { sel: null, made: [] }, feedback = null, leverPick = [], seqPick = [];
 const stableShuffle = (arr, key) => arr.map((v, i) => [v, i, [...key + i].reduce((h, c) => Math.imul(h ^ c.charCodeAt(0), 16777619), 2166136261) >>> 0]).sort((a, b) => a[2] - b[2]);
 
 function renderPuzzle(pz) {
@@ -502,6 +541,17 @@ function renderPuzzle(pz) {
     kids.push(el("div", { className: "row2" }, inp, el("button", { className: "go", textContent: "확인", onclick: () => submit(pz, inp.value) })));
   } else if (pz.type === "choice") {
     kids.push(...pz.options.map(o => el("button", { className: "opt", textContent: o, onclick: () => submit(pz, o) })));
+  } else if (pz.type === "lever") { // 레버마다 ▲·▼를 눌러 바꾸고 확인
+    leverPick = leverPick.length === pz.levers.length ? leverPick : pz.levers.map(() => "U");
+    kids.push(el("div", { className: "levers" }, ...pz.levers.map((name, i) => el("button", { className: "lever " + (leverPick[i] === "U" ? "up" : "down"),
+      ariaLabel: `${name} ${leverPick[i] === "U" ? "올림" : "내림"}`, onclick: () => { leverPick[i] = leverPick[i] === "U" ? "D" : "U"; renderPuzzle(pz); } },
+      el("span", { className: "knob", textContent: leverPick[i] === "U" ? "▲" : "▼" }), el("small", { textContent: name })))),
+      el("button", { className: "go", textContent: "⚙ 레버 고정하기", onclick: () => submit(pz, leverPick.join("")) }));
+  } else if (pz.type === "seq") { // 버튼을 순서대로 누름. 정답 길이만큼 누르면 바로 확인
+    kids.push(el("p", { className: "seqshow", textContent: seqPick.length ? seqPick.map(i => pz.options[i].split(" ")[0]).join("  →  ") : "누른 순서가 여기 표시돼요" }),
+      ...pz.options.map((o, i) => el("button", { className: "opt", textContent: o, onclick: () => {
+        seqPick.push(i); if (seqPick.length === pz.answer.length) { const v = seqPick.join(""); seqPick = []; submit(pz, v); } else renderPuzzle(pz); } })),
+      el("button", { className: "close", textContent: "처음부터 다시 누르기", onclick: () => { seqPick = []; renderPuzzle(pz); } }));
   } else { // pair: 왼쪽을 누르고 오른쪽을 눌러 짝짓기. 오른쪽 순서는 팀마다 섞음
     const madeL = new Set(pairPick.made.map(m => m[0])), madeR = new Set(pairPick.made.map(m => m[1]));
     const L = pz.left.map((t, i) => el("button", { className: "opt" + (pairPick.sel === i ? " sel" : "") + (madeL.has(i) ? " done" : ""), textContent: t,
@@ -549,23 +599,77 @@ async function submit(pz, input) {
     : pz.gives?.key ? `🔑 ${pz.gives.name}${pz.gives.key === "r" ? "이 열렸다!" : "를 얻었다! 🎒에 있어요"}` : "✅ 정답!", 4000);
 }
 
-// ── 단서 가방: 내가 받은 단서(팀원마다 다름) + 팀 공용 조각 + 옥상 출석부 ──
+// ── 단서 가방: 맨 위 막대(지도·닫기, 스크롤해도 고정) → 물건 → 퍼즐별로 묶은 내 단서(푼 퍼즐은 ✅로 접어 둠) → 조각·출석부·선생님 힌트 ──
+let bagTimer = 0; const bagSoon = () => { bagTimer ||= setTimeout(() => { bagTimer = 0; if ($("bag").classList.contains("on")) renderBag(); }, 400); }; // 0.4초에 한 번만
+let bagView = "clues", mapFloor = null, bagOpen = {}; // bagView: "clues" | "map"
+function bagBar(title) {
+  return el("div", { className: "bar" }, el("h2", { textContent: title }),
+    el("button", { className: "tab" + (bagView === "map" ? " on" : ""), textContent: bagView === "map" ? "📜 단서" : "🗺️ 지도",
+      onclick: () => { bagView = bagView === "map" ? "clues" : "map"; mapFloor = me.f >= 1 ? me.f : 1; renderBag(); } }),
+    el("button", { className: "close", textContent: "닫기 ✕", onclick: closeModal }));
+}
 function renderBag() {
+  if (bagView === "map") return renderMinimap();
   const clues = myBag(), left = mySparkles().length;
   const pcs = PZ ? PZ.pieces.filter((_, k) => solved(PZ.pieceFrom[k])) : [];
-  $("bag").replaceChildren(el("button", { className: "close", textContent: "닫기 ✕", onclick: closeModal }),
-    el("h2", { textContent: `🎒 내 물건 (${mine().length}/${BAG_MAX})` }),
-    el("p", { className: "sub", textContent: "친구에게 주려면 바닥에 내려놓고, 친구가 그 옆에서 🔍 조사를 눌러 줍게 하세요." }),
+  // 퍼즐별로 묶기: 아직 못 푼 퍼즐(층 순서) 먼저 펼쳐 두고, 푼 퍼즐은 맨 아래에 접어 둠
+  const groups = PZ ? PZ.floors.flatMap((fl, f) => fl.filter(pz => !pz.off).map(pz => ({ pz, f, mine: clues.filter(c => c.key.startsWith(pz.id + "-")) })))
+    .filter(g => g.mine.length) : [];
+  const card = ({ pz, f, mine }) => {
+    const done = solved(pz.id), [have, all] = cluesGot(pz);
+    const d = el("details", { className: "pzc" + (done ? " done" : ""), open: bagOpen[pz.id] ?? !done, ontoggle: e => { bagOpen[pz.id] = e.target.open; } }, // 직접 펼치고 접은 건 다시 그려도 유지
+      el("summary", {}, el("b", { textContent: `${done ? "✅" : "🔍"} ${pz.title}` }), el("span", { textContent: ` ${FLOOR_NAMES[f]} · 팀 단서 ${have}/${all}${done ? " · 해결!" : ""}` })),
+      ...mine.map(c => el("div", { className: "card", textContent: c.t })));
+    return d;
+  };
+  const open = groups.filter(g => !solved(g.pz.id)), closed = groups.filter(g => solved(g.pz.id));
+  $("bag").replaceChildren(bagBar(`🎒 단서 가방`),
+    el("h3", { textContent: `물건 (${mine().length}/${BAG_MAX})` }),
     ...(mine().length ? mine().map(id => el("div", { className: "card" }, ITEM[id], el("br"),
       el("button", { className: "drop", textContent: "⬇ 여기에 내려놓기", onclick: () => { dropAt(id, me.f, me.x, me.y); toast(`${ITEM[id]}을(를) 내려놓았다`, 2000); closeModal(); } })))
-      : [el("p", { className: "sub", textContent: "가진 물건이 없어요." })]),
-    el("h2", { textContent: "📜 내 단서" }),
-    el("p", { className: "sub", textContent: `지도에서 반짝이는 ✨ 옆에서 🔍 조사를 누르면 단서를 주워요. 팀원마다 보이는 ✨가 달라요. 아직 못 주운 내 단서 ${left}개` }),
-    ...(clues.length ? clues.map(c => el("div", { className: "card" }, el("small", { textContent: c.pz }), c.t)) : [el("p", { className: "sub", textContent: "아직 주운 단서가 없어요." })]),
-    el("h2", { textContent: "🧩 숫자 조각 (팀 공용)" }),
+      : [el("p", { className: "sub", textContent: "가진 물건이 없어요. 친구에게 주려면 바닥에 내려놓으세요." })]),
+    el("h3", { textContent: "📜 내 단서 (퍼즐별)" }),
+    el("p", { className: "sub", textContent: `반짝이는 별 옆에서 🔍 조사를 누르면 주워요. 팀원마다 별이 달라요 — 말로 알려 주세요! 아직 못 주운 내 단서 ${left}개` }),
+    ...(groups.length ? [...open, ...closed].map(card) : [el("p", { className: "sub", textContent: "아직 주운 단서가 없어요." })]),
+    el("h3", { textContent: "🧩 숫자 조각 (팀 공용)" }),
     ...(pcs.length ? pcs.map(p => el("div", { className: "card", textContent: `${p.event} — ${p.num}` })) : [el("p", { className: "sub", textContent: "몇몇 퍼즐을 풀면 조각을 얻어요." })]),
-    ...(solved("r1") ? [el("h2", { textContent: "📋 보충쌤 출석부" }), el("div", { className: "card", textContent: ROLL })] : []),
-    ...(hint ? [el("h2", { textContent: "📢 선생님 힌트" }), el("div", { className: "card", textContent: hint.text })] : []));
+    ...(solved("r1") ? [el("h3", { textContent: "📋 보충쌤 출석부" }), el("div", { className: "card", textContent: ROLL })] : []),
+    ...(hint ? [el("h3", { textContent: "📢 선생님 힌트" }), el("div", { className: "card", textContent: hint.text })] : []));
+}
+
+// ── 미니맵: 1~4층 전체 모양 + 팀이 발견한 퍼즐(🔍 못 품, ✅ 품) + 나(주황)·팀원(흰색) + 계단(초록 올라감, 파랑 내려감) ──
+const MAP_COLORS = { "#": "#2a2440", ".": "#c9c2b4", ",": "#9aa0a6", D: "#b08a5a", T: "#7a4f2a", B: "#2f5a40", L: "#6c7b93", H: "#c08a4a",
+  C: "#7fdc8f", K: "#7fdc8f", R: "#7fdc8f", V: "#7ab8ff", W: "#7ab8ff", X: "#7ab8ff", Y: "#c9a8ff", S: "#ff9a5a", j: "#a05050", G: "#c03a3a", "+": "#9c6b3c" };
+function renderMinimap() {
+  const f = mapFloor ?? 1, M = MAPS[f], W = M[0].length, H = M.length;
+  const box = $("bag"), cw = Math.min(box.clientWidth - 36, 560), s = Math.max(2, Math.floor(cw / W));
+  const cvm = el("canvas", { width: W * s * 2, height: H * s * 2, ariaLabel: `${FLOOR_NAMES[f]} 지도` }); cvm.style.width = W * s + "px"; cvm.style.height = H * s + "px";
+  const g = cvm.getContext("2d"); g.scale(2, 2);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const c = M[y][x]; let col = MAP_COLORS[c] ?? (/\d/.test(c) ? MAP_COLORS["."] : null);
+    if (LOCKS.includes(c)) col = progress.keys?.[c] ? MAP_COLORS["+"] : "#e04848";
+    if (col) { g.fillStyle = col; g.fillRect(x * s, y * s, s, s); }
+  }
+  g.textAlign = "center"; g.textBaseline = "middle"; g.font = `${Math.max(10, s * 3.2)}px sans-serif`;
+  (PZ?.floors[f] ?? []).forEach((pz, i) => { // 팀이 발견했거나 푼 퍼즐만
+    if (pz.off || !(solved(pz.id) || progress.found?.[pz.id])) return;
+    for (let y = 0; y < H; y++) { const x = M[y].indexOf(String(i + 1)); if (x >= 0) { g.fillText(solved(pz.id) ? "✅" : "🔍", x * s + s / 2, y * s + s / 2); break; } }
+  });
+  const dot = (x, y, col, r) => { g.beginPath(); g.arc(x * s + s / 2, y * s + s / 2, r, 0, Math.PI * 2); g.fillStyle = col; g.fill(); g.lineWidth = 1.5; g.strokeStyle = "#000"; g.stroke(); };
+  for (const [id, m] of Object.entries(mates)) if (id !== me.uid && m.online && (m.f ?? 1) === f && m.x != null) dot(m.x, m.y, "#fff", Math.max(3, s * 1.3));
+  if (me.f === f) dot(me.x, me.y, "#ff7a3d", Math.max(4, s * 1.7));
+  const floors = [1, 2, 3, 4];
+  box.replaceChildren(bagBar("🗺️ 학교 지도"),
+    el("div", { className: "tabs" }, ...floors.map(k => el("button", { className: "tab" + (k === f ? " on" : ""), textContent: `${k}층${k === me.f ? " (여기)" : ""}`, onclick: () => { mapFloor = k; renderMinimap(); } }))),
+    el("div", { className: "mmap" }, cvm),
+    el("p", { className: "sub", textContent: "🟠 나 · ⚪ 팀원 · 🔍 발견한 퍼즐 · ✅ 푼 퍼즐 · 연두 올라가는 계단 · 파랑 내려가는 계단 · 보라 엘리베이터 · 빨강 잠긴 문" }));
+}
+// 팀원 누구든 화면에 퍼즐 자리가 보이면 '발견'으로 저장 → 모두의 미니맵에 🔍
+const foundSent = new Set();
+function markFound(ids) {
+  const fresh = ids.filter(id => !progress.found?.[id] && !foundSent.has(id)); if (!fresh.length) return;
+  fresh.forEach(id => foundSent.add(id));
+  net.changeProgress(p => fresh.every(id => p.found?.[id]) ? undefined : { ...p, found: { ...p.found, ...Object.fromEntries(fresh.map(id => [id, true])) } });
 }
 
 const mmss = ms => { const s = Math.floor(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
@@ -652,24 +756,25 @@ function caughtNow(line = "") {
 // 알아챈 학생은 학생보다 10% 빠르게 쫓고, 쫓을 학생이 없으면 느리게 순찰한다. 지하·옥상에는 괴물이 없다
 function runMonster(now, ph) {
   if (me.f === 0) return runDarkMonster(now);
-  if (!playing() || ph.phase !== "chase" || now - mStep < (mon?.tid ? MON_STEP_MS : PATROL_STEP_MS)) return;
+  const every = mon?.tid ? MON_STEP_MS : PATROL_STEP_MS;
+  if (!playing() || ph.phase !== "chase" || now - mStep < every) return;
   const t = net.serverNow(), cur = mon?.n === ph.n && mon.f === me.f ? mon : null;
   const here = Object.fromEntries(Object.entries(mates).filter(([, m]) => sameFloor(m)));
   if (hostOf(here, cur, t, t - ((ph.chase ?? CHASE_MS) - ph.left)) !== me.uid) return;
-  mStep = now;
+  mStep = now - mStep < every * 2 ? mStep + every : now; // 화면 주기(16ms)에 밀리지 않고 정확한 간격으로 걸음
   const players = Object.entries(here).filter(([, m]) => m.online && m.x != null)
     .map(([id, m]) => id === me.uid ? { id, x: me.x, y: me.y, jail: me.jail, seen: me.seen } : { id, x: m.x, y: m.y, jail: m.jail, seen: m.seen });
   if (!cur) { // 이번 등장의 첫 순간: 가장 가까운 학생에게서 11~14칸 떨어진 곳에 나타남
-    mon = { n: ph.n, f: me.f, ...spawnTile(MAP, players.filter(p => !p.jail), meta.seed ?? 1, ph.n * 7 + me.f), by: me.uid, t, tid: null, h: 0 };
+    mon = { n: ph.n, f: me.f, ...spawnTile(MAP, players.filter(p => !p.jail), meta.seed ?? 1, ph.n * 7 + me.f), by: me.uid, t, tid: null, h: 0, s0: t, say: "어디 있니~?" };
     mTarget = null; return net.setMonster(mon);
   }
-  if (mon.w > t) { mon = { ...mon, by: me.uid, t }; return net.setMonster(mon); } // 문을 지난 뒤 2초 멈춤(그동안도 '살아 있음'은 알림)
+  if (mon.w > t || t - (mon.s0 ?? 0) < LOOK_MS) { mon = { ...mon, by: me.uid, t }; return net.setMonster(mon); } // 문을 지난 뒤 2초·나타난 직후 1.5초는 멈춤(그동안도 '살아 있음'은 알림)
   // 방장이 바뀌었으면 서버에 남은 표적(tid)을 이어받는다
   if (!mTarget && mon.tid) mTarget = { id: mon.tid, x: mon.x, y: mon.y, at: 0 };
   mTarget = nextTarget(MAP, mon, players, mTarget, now);
   const go = mTarget ? { ...stepToward(MAP, mon, mTarget), h: mon.h ?? 0 } : patrolStep(MAP, mon, mon.h ?? 0);
   const { step, say, s1 } = seekStep(MAP, mon, mTarget && players.find(p => p.id === mTarget.id), go, t) ?? { step: go, say: null, s1: 0 }; // 숨는 걸 본 사물함은 열어 봄
-  mon = { n: ph.n, f: me.f, ...step, by: me.uid, t, tid: mTarget?.id ?? null, say, s1, w: doorWait(MAP, mon, step, t) }; // 제자리여도 올려서 '살아 있음'을 알림
+  mon = { n: ph.n, f: me.f, ...step, by: me.uid, t, tid: mTarget?.id ?? null, say, s1, s0: mon.s0, w: doorWait(MAP, mon, step, t) }; // 제자리여도 올려서 '살아 있음'을 알림
   net.setMonster(mon);
 }
 
@@ -703,7 +808,7 @@ function frame(now) {
   if (intro?.active) return intro.frame(now);
   const ph = MONSTER_FLOORS.includes(me.f) ? phaseAt(net.gameMs(meta), meta.seed ?? 1, PZ?.level) : { phase: "rest", n: -1, left: 0 };
   const active = me.f === 0 ? (mon?.f === 0 && mon.until > net.serverNow() ? mon : null) // 지하: 독단행동 때 20초만
-    : ph.phase === "chase" && mon?.n === ph.n && mon.f === me.f && !(mon.w > net.serverNow()) ? mon : null; // 이번 등장·이 층의 괴물만. 문에서 멈춘 2초는 안 보임
+    : ph.phase === "chase" && mon?.n === ph.n && mon.f === me.f ? mon : null; // 이번 등장·이 층의 괴물만(문 앞에서 멈춘 동안도 보임)
   const monLeft = me.f === 0 ? (active ? active.until - net.serverNow() : 0) : ph.left;
   setMode(active && !me.jail && playing() ? "chase" : "ambient"); // 보충쌤이 이 층에서 쫓는 동안 추격 음악
   if (dir && playing() && !me.jail && now - lastStep >= STEP_MS) {
@@ -726,6 +831,7 @@ function frame(now) {
     }
   }
   runMonster(now, ph);
+  if (now - lastStair > 200) { lastStair = now; stairCheck(); } // 계단 모임·카운트다운(0.2초마다)
   // 숨기 제한: 사물함 안에서는 시간이 쌓이고, 밖에서는 1초에 1초씩 줄어듦. 60초면 들킴
   const dt = lastT ? Math.min(now - lastT, 250) : 0; lastT = now;
   const hidden = MAP[me.y][me.x] === "H";
@@ -740,17 +846,21 @@ function frame(now) {
   }
   const near = active && Math.abs(active.x - me.x) + Math.abs(active.y - me.y) <= 3;
   $("mapbox").classList.toggle("danger", playing() && !me.jail && !!near);
-  const alert = !playing() || me.jail ? ""
+  const monLine = !playing() || me.jail || !MONSTER_FLOORS.includes(me.f) ? ""
+    : ph.phase === "warn" ? "⚠️ 보충쌤이 곧 나타나요! 숨을 곳을 찾자"
+    : ph.phase !== "chase" ? ""
+    : active?.tid === me.uid ? `😱 보충쌤이 나를 쫓아온다! ${Math.ceil(monLeft / 1000)}초 버티기`
+    : `👨‍🔬 보충쌤이 이 층에 있다 · ${!active ? "어딘가에서 나타나는 중" : active.tid ? "추격 중" : "순찰 중"} · ${Math.ceil(monLeft / 1000)}초 버티기${hidden ? " · 🫣 숨는 중" : ""}`;
+  const other = !playing() || me.jail ? ""
     : darkSince != null ? `👀 어둠 속에서 시선이 느껴진다… ${Math.max(1, Math.ceil((2000 - (now - darkSince)) / 1000))}`
     : net.serverNow() < toastUntil && toastText.startsWith("📢") ? toastText
     : hidden && me.seen && active ? `😨 들킨 것 같다… 보충쌤: "${active.say ?? "어디에 숨었을까~"}"`
     : hidden && hideMs >= HIDE_WARN_MS ? `…발소리가 가까워진다. ${Math.ceil((HIDE_MAX_MS - hideMs) / 1000)}초 뒤 들킬 것 같아!`
     : net.serverNow() < toastUntil && toastText ? toastText
     : stairWait ? stairWait
-    : ph.phase === "warn" ? "…누가 복도에 있니? (보충쌤이 곧 나타나요!)"
-    : active?.tid === me.uid ? `😱 들켰다! 보충쌤이 나를 쫓아온다 (${Math.ceil(monLeft / 1000)}초)`
-    : active ? `👨‍🔬 보충쌤 ${active.tid ? "추격 중" : "순찰 중"}… ${Math.ceil(monLeft / 1000)}초 버티기${hidden ? " · 🫣 숨는 중" : ""}`
-    : hidden ? `🫣 사물함에 숨는 중 (${Math.floor(hideMs / 1000)}초 / 60초)` : "";
+    : hidden && !monLine ? `🫣 사물함에 숨는 중 (${Math.floor(hideMs / 1000)}초 / 60초)` : "";
+  const alert = [monLine, other].filter(Boolean).join("\n");
+  $("alert").classList.toggle("mon", !!monLine);
   if ($("alert").textContent !== alert) $("alert").textContent = alert;
   $("alert").classList.toggle("on", !!alert);
   // 화면 위치는 일정한 속도로 따라감(한 칸 = 한 걸음 시간) → 계속 걸으면 끊김 없이 미끄러지듯 이동
@@ -758,14 +868,15 @@ function frame(now) {
   if (!active) monR = null;
   else { monR ??= { rx: active.x, ry: active.y, d: "d" }; const mdx = active.x - monR.rx, mdy = active.y - monR.ry;
     if (Math.abs(mdx) + Math.abs(mdy) > 0.01) monR.d = Math.abs(mdx) > Math.abs(mdy) ? (mdx > 0 ? "r" : "l") : (mdy > 0 ? "d" : "u");
-    monR.tx = active.x; monR.ty = active.y; [monR.rx, monR.ry] = glide(monR, active.x, active.y, dt / (active.tid ? MON_STEP_MS : PATROL_STEP_MS) * 1.1);
+    monR.tx = active.x; monR.ty = active.y; const lag = Math.abs(active.x - monR.rx) + Math.abs(active.y - monR.ry);
+    [monR.rx, monR.ry] = glide(monR, active.x, active.y, dt / (active.tid ? MON_STEP_MS : PATROL_STEP_MS) * (1.1 + Math.max(0, lag - 1))); // 늦게 온 위치는 벌어진 만큼 빠르게 따라잡음(멈칫 방지)
     monR.x = monR.rx; monR.y = monR.ry; }
   for (const id in mates) {
     const m = mates[id]; if (id === me.uid || m.x == null) continue;
     [m.rx, m.ry] = glide(m, m.x, m.y, dt / STEP_MS * 1.2); // 통신 지연분을 따라잡도록 조금 빠르게
   }
   // 화면에 보이는 것이 바뀔 때만 다시 그림(가만히 있을 때 배터리·발열 절약)
-  const key = [mySparkles().length ? Math.floor(now / 100) : 0, Math.floor(now / WALK_MS), me.d, monR?.d, me.f, JSON.stringify(items), progress.keys && Object.keys(progress.keys).join(), me.rx, me.ry, monR?.x, monR?.y, mon?.tid, mon?.say, T, VIEW_W, JSON.stringify(progress.solved ?? {}),
+  const key = [mySparkles().length || (monR && !mon?.tid) ? Math.floor(now / 50) : 0, Math.floor(now / WALK_MS), me.d, monR?.d, me.f, JSON.stringify(items), progress.keys && Object.keys(progress.keys).join(), me.rx, me.ry, monR?.x, monR?.y, mon?.tid, mon?.say, T, VIEW_W, JSON.stringify(progress.solved ?? {}),
     ...Object.values(mates).flatMap(m => [m.rx, m.ry, m.d, m.online, m.jail, m.nick, m.f])]
     .map(v => typeof v === "number" ? v.toFixed(2) : v).join();
   if (key !== drawKey) { drawKey = key; draw(); }
@@ -796,34 +907,57 @@ function paintBg(cx, cy, see, dpr) {
   const W = MAP[0].length, H = MAP.length, cvb = bg.cv;
   const w = (VIEW_W + 2) * T * dpr, h = (VIEW_H + 2) * T * dpr;
   if (cvb.width !== w || cvb.height !== h) { cvb.width = w; cvb.height = h; } else cvb.getContext("2d").clearRect(0, 0, w, h);
-  const ctx = cvb.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.imageSmoothingEnabled = false;
+  const ctx = cvb.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.imageSmoothingEnabled = false; const seenPz = [];
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
   for (let y = Math.floor(cy); y < Math.min(H, cy + VIEW_H + 1); y++)
     for (let x = Math.floor(cx); x < Math.min(W, cx + VIEW_W + 1); x++) {
       if (!see(x, y)) continue;
       const c = MAP[y][x], px = Math.round((x - cx) * T), py = Math.round((y - cy) * T);
       drawTile(ctx, MAP, me.f, x, y, px, py, T); // 도트 타일(tiles.js)
+      if (/\d/.test(c) && floorPz()[+c - 1] && !floorPz()[+c - 1].off) seenPz.push(floorPz()[+c - 1].id);
       const icon = (LOCKS.includes(c) ? (progress.keys?.[c] ? "" : c === "r" ? "🔐" : "🔒")
         : /\d/.test(c) && floorPz()[+c - 1] && !floorPz()[+c - 1].off ? (solved(floorPz()[+c - 1].id) ? "✅" : "🔍") : ""); // 난이도에서 뺀 퍼즐 칸은 표시 없음
       if (icon) { ctx.font = `${T * 0.6}px sans-serif`; ctx.fillText(icon, px + T / 2, py + T / 2); }
     }
-  // 모이는 곳: 쓸 수 있는 계단·엘리베이터 1칸 안을 반투명 초록으로
-  ctx.fillStyle = "rgba(60, 200, 90, 0.28)";
+  if (seenPz.length && playing()) markFound(seenPz);
+  // 모이는 곳: 쓸 수 있는 계단·엘리베이터 1칸 안(바닥만). 올라가는 계단 연두, 내려가는 계단 하늘색, 엘리베이터 연보라
   for (let y = Math.floor(cy) - 1; y < Math.min(H, cy + VIEW_H + 2); y++)
     for (let x = Math.floor(cx) - 1; x < Math.min(W, cx + VIEW_W + 2); x++)
-      if (STAIRS.includes(MAP[y]?.[x]) && moves(MAP[y][x]).length)
+      if (STAIRS.includes(MAP[y]?.[x]) && moves(MAP[y][x]).length) {
+        ctx.fillStyle = ZONE_COLOR[zoneKind(MAP[y][x])];
         for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const c = MAP[y + dy]?.[x + dx];
-          if (c && c !== "#" && see(x + dx, y + dy)) ctx.fillRect((x + dx - cx) * T, (y + dy - cy) * T, T, T); }
-  // 교실 명패: 문 옆 벽에(가로 벽이면 오른쪽, 세로 벽이면 위쪽)
-  ctx.font = `bold ${Math.max(9, T * 0.28)}px sans-serif`;
+          if (c && !"#".includes(c) && !STAIRS.includes(c) && see(x + dx, y + dy)) ctx.fillRect((x + dx - cx) * T, (y + dy - cy) * T, T, T); }
+      }
+  // 교실 명패: 문 바로 옆 벽에서 복도 쪽으로 튀어나온 팻말(받침대·두께·바닥 그림자로 돌출을 표현)
   for (const r of ROOMS[me.f] ?? []) {
-    const [dx0, dy0] = r.door, vert = MAP[dy0 - 1]?.[dx0] !== "#" && MAP[dy0 + 1]?.[dx0] !== "#";
-    const tx = vert ? dx0 + 1 : dx0, ty = vert ? dy0 : dy0 - 1; // 문이 위아래로 통하면 오른쪽 벽, 좌우로 통하면 위쪽 벽
-    if (!see(tx, ty) || tx < cx - 3 || tx > cx + VIEW_W + 3 || ty < cy - 1 || ty > cy + VIEW_H + 1) continue;
-    const w = ctx.measureText(r.name).width + 8, px = (tx - cx) * T + T / 2, py = (ty - cy) * T + T / 2;
-    ctx.fillStyle = "#e8dcc0"; ctx.fillRect(px - w / 2, py - T * 0.22, w, T * 0.44);
-    ctx.fillStyle = "#3a2a1a"; ctx.fillText(r.name, px, py + 1);
+    const sg = signOf(r); if (!sg) continue;
+    const { tx, ty, dx, dy } = sg;
+    if (!see(tx + dx, ty + dy) || tx < cx - 3 || tx > cx + VIEW_W + 3 || ty < cy - 2 || ty > cy + VIEW_H + 2) continue;
+    drawSign(ctx, (tx - cx) * T + T / 2, (ty - cy) * T + T / 2, dx, dy, r.name);
   }
+}
+// 팻말 자리: 문 옆 벽 칸(세로 벽 문이면 위쪽 벽, 가로 벽 문이면 오른쪽 벽)과 복도 쪽 방향
+const signMemo = new Map();
+function signOf(r) {
+  const key = me.f + r.name; if (signMemo.has(key)) return signMemo.get(key);
+  const [x, y] = r.door, vertWall = MAP[y - 1]?.[x] === "#" && MAP[y + 1]?.[x] === "#"; // 문 위아래가 벽 = 세로 벽(좌우로 통함)
+  const id = regions(MAP), W = MAP[0].length, size = new Map(); for (const v of id) size.set(v, (size.get(v) ?? 0) + 1);
+  const sides = vertWall ? [[-1, 0], [1, 0]] : [[0, -1], [0, 1]];
+  const [dx, dy] = sides.sort((a, b) => (size.get(id[(y + b[1]) * W + x + b[0]]) ?? 0) - (size.get(id[(y + a[1]) * W + x + a[0]]) ?? 0))[0]; // 더 넓은 쪽 = 복도
+  const res = vertWall ? { tx: x, ty: y - 1, dx, dy } : { tx: x + 1, ty: y, dx, dy };
+  signMemo.set(key, MAP[res.ty]?.[res.tx] === "#" ? res : null); return signMemo.get(key);
+}
+function drawSign(ctx, ax, ay, dx, dy, text) { // ax, ay: 벽 칸 가운데. dx, dy: 복도 쪽
+  ctx.font = `bold ${Math.max(9, T * 0.27)}px sans-serif`;
+  const w = ctx.measureText(text).width + T * 0.3, h = T * 0.42, lift = T * 0.3; // 천장 가까이 달려 있어 바닥보다 위로 그림
+  const px = ax + dx * T * 0.7, py = ay + dy * T * 0.7 - lift;
+  ctx.fillStyle = "rgba(0,0,0,0.25)"; ctx.fillRect(px - w / 2 + T * 0.12, py + lift + T * 0.12, w, h * 0.3); // 바닥에 진 그림자
+  ctx.strokeStyle = "#3a2a1a"; ctx.lineWidth = 3;                                  // 벽에서 나온 받침대
+  ctx.beginPath(); ctx.moveTo(ax + dx * T * 0.45, ay + dy * T * 0.45 - lift - h / 2); ctx.lineTo(px, py - h / 2); ctx.stroke();
+  ctx.fillStyle = "#5a3e22"; ctx.fillRect(px - w / 2, py - h / 2 + 3, w, h);      // 두께(아래로 살짝 보이는 옆면)
+  ctx.fillStyle = "#f3ead6"; ctx.fillRect(px - w / 2, py - h / 2, w, h);           // 앞판
+  ctx.strokeStyle = "#5a3e22"; ctx.lineWidth = 2; ctx.strokeRect(px - w / 2 + 1, py - h / 2 + 1, w - 2, h - 2);
+  ctx.fillStyle = "#2a1c10"; ctx.fillText(text, px, py + 1);
 }
 function draw() {
   const W = MAP[0].length, H = MAP.length, see = seer();
@@ -839,17 +973,16 @@ function draw() {
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
   ctx.font = `${T * 0.6}px sans-serif`; // 바닥에 떨어진 물건
   for (const [id, v] of Object.entries(items)) if (v && !v.by && v.f === me.f && see(v.x, v.y)) ctx.fillText(ITEM[id].split(" ")[0], (v.x - cx) * T + T / 2, (v.y - cy) * T + T / 2);
-  const tw = performance.now() / 300; // ✨ 반짝임: 칸마다 박자를 조금씩 다르게
-  ctx.font = `${T * 0.38}px sans-serif`; // 작게 반짝임(책상·칠판 위)
+  const tw = performance.now() / 260; // 반짝임: 흰 별이 커졌다 작아지며 빛남. 칸마다 박자를 조금씩 다르게(칠판 단서도 같은 별)
   for (const c of mySparkles()) {
     if (!see(c.x, c.y)) continue;
-    ctx.globalAlpha = 0.55 + 0.45 * Math.sin(tw + c.x * 1.7 + c.y);
-    ctx.fillText("✨", (c.x - cx) * T + T / 2, (c.y - cy) * T + T / 2);
+    const k = 0.5 + 0.5 * Math.sin(tw + c.x * 1.7 + c.y);
+    sparkle(ctx, (c.x - cx) * T + T / 2, (c.y - cy) * T + T / 2, T * (0.28 + 0.2 * k), 0.55 + 0.45 * k);
+    sparkle(ctx, (c.x - cx) * T + T * 0.8, (c.y - cy) * T + T * 0.22, T * 0.12 * (1 - k), 0.9); // 옆의 작은 별(엇박자)
   }
-  ctx.globalAlpha = 1;
   const monSeen = monR && see(Math.round(monR.x), Math.round(monR.y));
-  if (monSeen && !mon.tid) { // 순찰 중: 괴물이 알아챌 수 있는 칸(걸어서 6칸, 벽에 막히면 제외)을 반투명 빨강으로
-    ctx.fillStyle = "rgba(255, 45, 45, 0.2)";
+  if (monR && !mon.tid) { // 순찰 중: 괴물이 알아챌 수 있는 칸(걸어서 8칸, 벽에 막히면 제외)을 반투명 빨강으로. 보충쌤이 안 보여도 내 쪽으로 넘어온 범위는 보임
+    ctx.fillStyle = `rgba(255, 45, 45, ${0.2 + 0.08 * Math.sin(performance.now() / 250)})`;
     for (const k of sightTiles(MAP, mon).keys()) {
       const [x, y] = k.split(",").map(Number);
       if (see(x, y)) ctx.fillRect((x - cx) * T, (y - cy) * T, T, T);
@@ -882,6 +1015,15 @@ function draw() {
     ctx.fillStyle = gr; ctx.fillRect(0, 0, w, h);
     ctx.fillStyle = "rgba(0,0,0,0.5)"; for (let k = -2; k <= 2; k++) ctx.fillRect(0, py + k * T * 0.18 - 1, w, 2); // 통풍구 틈
   }
+}
+function sparkle(ctx, x, y, r, a) { // 네 갈래 흰 별 + 은은한 빛 번짐
+  if (r < 0.5) return;
+  ctx.save(); ctx.globalAlpha = a;
+  const g = ctx.createRadialGradient(x, y, 0, x, y, r * 1.6); g.addColorStop(0, "rgba(255,255,255,0.75)"); g.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r * 1.6, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "#fff"; ctx.beginPath();
+  for (let i = 0; i < 8; i++) { const ang = i * Math.PI / 4 - Math.PI / 2, d = i % 2 ? r * 0.22 : r; ctx.lineTo(x + Math.cos(ang) * d, y + Math.sin(ang) * d); }
+  ctx.closePath(); ctx.fill(); ctx.restore();
 }
 const WALK_MS = 160; // 걸음 모션 한 박자
 // 화면 위치가 목표 칸을 따라가는 중이면 걸음(1·2 번갈아), 아니면 서 있기(0)

@@ -4,7 +4,7 @@ export const PLAYER_STEP_MS = 167; // 학생 걸음: 초당 약 6칸
 export const STEP_MS = Math.round(PLAYER_STEP_MS / 1.2); // 학생보다 20% 빠름(139ms) — 책상을 빙빙 돌아도 결국 따라잡힘
 export const RETARGET_MS = 500;   // 노리는 학생 위치를 0.5초마다 갱신 → 모퉁이에서 따돌릴 틈
 export const DETECT = 6;          // 쫓던 학생을 놓친 순간 직선 6칸 안(벽 너머 O)의 학생을 알아챔
-export const PATROL_DETECT = 12;  // 순찰 중엔 걸어서 12칸 안(벽 너머 X)
+export const PATROL_DETECT = 8;   // 순찰 중엔 걸어서 8칸 안(벽 너머 X). 이 범위를 바닥에 빨갛게 보여 줌
 export const PATROL_STEP_MS = 200; // 순찰할 때는 학생보다 느리게 걸음
 export const WARN_MS = 2000, CHASE_MS = 20000, REST_MS = 180000;
 // 난이도 '쉬움': 약 5분마다(2+12+286초) 12초만 추격
@@ -39,20 +39,22 @@ export const DOOR_WAIT_MS = 2000; // 문을 지나면 2초 뒤에 따라 들어�
 export const SEEK_MS = 1500;      // 사물함 앞에서 "어디에 숨었을까~" 하고 기다리는 시간
 export const SEEK_DIST = 2;       // 이 거리 안에서 숨는 걸 보면 그 사물함을 열어 봄
 
-// 등장 위치: 등장마다 5~8칸 중 하나를 무작위로 정해, 가장 가까운 학생과 딱 그 거리인 칸에 나타남.
-// 그런 칸이 없으면 5~8칸 중 되는 거리로, 그래도 없으면 5칸 이상 아무 곳. n·seed로 정해져 방장이 바뀌어도 같음
+// 등장 위치: 등장마다 8~10칸 중 하나를 무작위로 정해, 가장 가까운 학생과 딱 그 거리인 칸에 나타남.
+// 그런 칸이 없으면 8~10칸 중 되는 거리로, 그래도 없으면 8칸 이상 아무 곳. n·seed로 정해져 방장이 바뀌어도 같음
+export const SPAWN = [8, 10];
+export const LOOK_MS = 1500; // 나타난 뒤 1.5초는 두리번거리기만(나타나자마자 덮치지 않게)
 export function spawnTile(map, targets, seed, n) {
   const all = [];
   map.forEach((row, y) => [...row].forEach((_, x) => monsterTile(map, x, y) && all.push({ x, y })));
   const near = t => targets.length ? Math.min(...targets.map(p => dist(t, p))) : 99;
-  const want = PATROL_DETECT - 1 + Math.floor(rnd(seed * 17 + n * 389) * 4); // 알아채는 거리 언저리(11~14칸)
+  const want = SPAWN[0] + Math.floor(rnd(seed * 17 + n * 389) * (SPAWN[1] - SPAWN[0] + 1)); // 8~10칸
   const pick = pool => pool[Math.floor(rnd(seed * 131 + n * 977) * pool.length)];
-  for (const d of [want, ...[0, 1, 2, 3].map(i => PATROL_DETECT - 1 + i)]) { const pool = all.filter(t => near(t) === d); if (pool.length) return pick(pool); }
-  const far = all.filter(t => near(t) >= PATROL_DETECT - 1);
+  for (const d of [want, SPAWN[0], SPAWN[0] + 1, SPAWN[1]]) { const pool = all.filter(t => near(t) === d); if (pool.length) return pick(pool); }
+  const far = all.filter(t => near(t) >= SPAWN[0]);
   return pick(far.length ? far : all);
 }
 
-// 순찰 중 인식 범위: 괴물이 걸어서 6칸 안에 갈 수 있는 칸들(벽에 막히면 못 봄). Map("x,y" → 걸음 수)
+// 순찰 중 인식 범위: 괴물이 걸어서 8칸 안에 갈 수 있는 칸들(벽에 막히면 못 봄). Map("x,y" → 걸음 수)
 let sightMemo = { k: "", v: null };
 export function sightTiles(map, m, r = PATROL_DETECT) {
   const k = `${m.x},${m.y},${r}`;
@@ -99,10 +101,11 @@ export function pickTarget(map, m, players) {
 // 다음에 노릴 곳. cur = { id, x, y, at }. null이면 순찰.
 // - 한 번 쫓기 시작한 학생은 숨거나 잡히거나 나갈 때까지 계속 쫓는다(0.5초마다 위치만 갱신 → 모퉁이에서 따돌릴 틈).
 // - 쫓던 학생을 잃은 순간(추격 중)에는 벽 너머라도 직선 6칸 안의 학생을 알아챈다.
-// - 순찰 중에는 걸어서 6칸 안(벽에 막히지 않은 곳)의 학생만 알아챈다. 아무도 없으면 순찰.
+// - 순찰 중에는 걸어서 8칸 안(벽에 막히지 않은 곳)의 학생만 알아챈다. 아무도 없으면 순찰.
 export function nextTarget(map, m, players, cur, now) {
   const live = cur && players.find(p => p.id === cur.id);
-  if (live && targetable(map, live)) return now - cur.at < RETARGET_MS ? cur : { id: live.id, x: live.x, y: live.y, at: now };
+  // 옛 위치에 이미 도착했으면 0.5초를 기다리지 않고 바로 새 위치로(기다리면 제자리에 서서 추격이 끊겨 보임)
+  if (live && targetable(map, live)) return now - cur.at < RETARGET_MS && (m.x !== cur.x || m.y !== cur.y) ? cur : { id: live.id, x: live.x, y: live.y, at: now };
   const sees = cur ? p => dist(m, p) <= DETECT : (vis => p => vis.has(`${p.x},${p.y}`))(sightTiles(map, m));
   const t = pickTarget(map, m, players.filter(sees));
   return t ? { id: t.id, x: t.x, y: t.y, at: now } : null;

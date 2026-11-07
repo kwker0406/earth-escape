@@ -1,5 +1,5 @@
 // 층별 퍼즐(통합과학2 학습지 36·37·41~45쪽). 팀마다 숫자·질문이 달라 옆 팀 답을 베끼면 틀린다.
-// 퍼즐 유형: code(자물쇠에 입력), choice(하나 고르기), pair(왼쪽-오른쪽 짝짓기)
+// 퍼즐 유형: code(자물쇠에 입력), choice(하나 고르기), pair(왼쪽-오른쪽 짝짓기), lever(레버 ▲▼ 조합), seq(버튼을 순서대로)
 // 단서(clues)는 지도 곳곳에 흩어 두고, 팀원마다 자기 몫만 반짝여 보인다 → 모아서 말로 알려 줘야 풀린다.
 // pair·choice는 보기를 기호(㉠·레버 1 등)로 가리고 그 뜻을 단서에 적는다 → 아는 것만으로는 못 푼다.
 // shortcut: 정답은 코드에서 계산할 수 있어 코딩을 아는 학생은 찾을 수 있음. 서버 검증은 유료 요금제가 필요해 쓰지 않음.
@@ -39,6 +39,18 @@ function hide(pz, r, name) {
   return { ...pz, options: opts, answer: opts[order.indexOf(pz.answer)], clues: [...order.map((t, k) => `🔖 ${opts[k]}: ${t}`), ...keep(opts.length)] };
 }
 export const norm = s => String(s).replace(/\s+/g, "").toUpperCase();
+// 레버: 순서를 섞어 '레버 1~4'로 보여 주고, 레버 뜻은 🔖 카드로. 정답은 U(▲)·D(▼) 글자열
+function levers(pz, r) {
+  const order = shuffle(pz.levers.map((_, i) => i), r);
+  return { ...pz, levers: order.map((_, k) => `레버 ${k + 1}`), answer: order.map(i => pz.levers[i][3]).join(""),
+    clues: [...order.map((i, k) => `🔖 레버 ${k + 1}: ${pz.levers[i][0]} (▲ ${pz.levers[i][1]} / ▼ ${pz.levers[i][2]})`), ...pz.clues] };
+}
+// 순서 버튼: 자리를 섞어 보여 주고, 정답은 누를 버튼 자리 번호(0~3)를 이은 글자열
+function sequence(pz, r) {
+  const order = shuffle(pz.steps.map((_, i) => i), r);
+  return { ...pz, options: order.map(i => pz.steps[i]), answer: pz.steps.map((_, i) => order.indexOf(i)).join("") };
+}
+const prep = (pz, r, name) => pz.type === "code" ? pz : pz.type === "lever" ? levers(pz, r) : pz.type === "seq" ? sequence(pz, r) : hide(pz, r, name);
 
 // 팀마다 다른 문제 세트. seed: 반의 씨앗값, code: 팀 코드, no: 팀 번호(1~6)
 export function buildPuzzles(seed, code, no, level = "hard") {
@@ -98,20 +110,25 @@ export function buildPuzzles(seed, code, no, level = "hard") {
         left: ["무역풍", "편서풍", "극동풍"], right: ["적도 ~ 위도 30°", "위도 30° ~ 60°", "위도 60° ~ 극"],
         clues: ["🌐 메모: 적도의 따뜻한 공기는 올라가고, 극의 차가운 공기는 내려온다", "🌐 메모: 저위도의 바닷물은 동쪽에서 서쪽으로 부는 바람에 밀려 서쪽으로 흐른다", "🌐 메모: 중위도의 바닷물은 서쪽에서 불어오는 바람에 밀려 동쪽으로 흐른다", "🌐 메모: 극에서 부는 바람은 가장 높은 위도에"],
         hints: ["(적도에서 극까지 바람대가 세 칸으로 나뉘어 있어.)", "(무역풍은 적도 쪽, 극동풍은 이름처럼 극 쪽.)", "(무역풍 0~30°, 편서풍 30~60°, 극동풍 60°~극)"] },
-      { id: "f3b", title: "고장 난 무역풍 선풍기", type: "choice", ask: "쪽지: \"동태평양 바다에 열이 나게 하라.\" 레버를 골라라.",
-        options: ["무역풍 강하게", "무역풍 그대로", "무역풍 약하게"], answer: "무역풍 약하게",
-        clues: ["📈 관측 기록: 평상시 무역풍은 따뜻한 해수를 서쪽(인도네시아)으로 밀어낸다", "📈 관측 기록: 동쪽(페루)에서는 깊은 곳의 차가운 해수가 올라온다(용승)", "📈 관측 기록: 따뜻한 해수가 덜 밀려가면 동쪽에 따뜻한 물이 남는다", "📈 관측 기록: 용승이 약해지면 차가운 물이 덜 올라온다"],
-        hints: ["(동쪽 바다를 데우려면 따뜻한 물이 동쪽에 남아야 해.)", "(바람이 세면 따뜻한 물이 더 멀리 밀려가 버려.)", "(무역풍이 약해지면 엘니뇨!)"] },
+      // 레버 4개(▲·▼)의 조합 16가지. 레버마다 무엇을 조절하는지는 단서 카드(🔖)에만 있고, 레버 순서는 팀마다 섞음
+      { id: "f3b", title: "고장 난 무역풍 선풍기", type: "lever",
+        ask: "쪽지: \"동태평양 바다에 열이 나게 하라(엘니뇨).\" 레버 네 개를 그때의 상태로 올리거나(▲) 내려라(▼).",
+        levers: [["무역풍 세기", "강하게", "약하게", "D"], ["동태평양 용승", "강하게", "약하게", "D"], ["동태평양 바닷물 온도", "높게", "낮게", "U"], ["서태평양(인도네시아) 강수량", "많게", "적게", "D"]],
+        clues: ["📈 관측 기록: 평상시 무역풍은 따뜻한 해수를 서쪽(인도네시아)으로 밀어낸다", "📈 관측 기록: 동쪽(페루)에서는 깊은 곳의 차가운 해수가 올라온다(용승)"],
+        hints: ["(동쪽 바다를 데우려면 따뜻한 물이 동쪽에 남아야 해.)", "(바람이 약해지면 차가운 물을 끌어올리는 용승은 어떻게 될까?)", "(비구름은 따뜻한 바다를 따라 동쪽으로 옮겨 가. 그럼 서태평양의 비는?)"] },
       { id: "f3c", title: "엘니뇨 피해 지도", type: "pair", ask: "무역풍이 약해졌을 때(엘니뇨) 각 지역에 생기는 피해를 짝지어라.",
         left: ["서태평양(인도네시아)", "동태평양(페루)"], right: ["가뭄·산불", "홍수·어획량 감소"],
         clues: ["☁ 메모: 따뜻한 바다 위에서는 공기가 올라가 구름과 비가 많아진다", "☁ 메모: 엘니뇨 때 비가 많이 오는 곳은 동쪽으로 옮겨 간다", "🐟 메모: 깊은 곳의 영양분이 덜 올라오면 물고기가 줄어든다", "☀ 메모: 비구름이 떠난 곳은 메마른다"],
         hints: ["(비구름이 어디로 옮겨 갔는지 생각해 봐.)", "(비가 많아진 쪽은 홍수, 비구름이 떠난 쪽은 가뭄.)", "(서태평양: 가뭄·산불 / 동태평양: 홍수·어획량 감소)"] },
     ],
     [ // 4층 · 43~45쪽(옥상 포함)
-      { id: "f4a", title: "공기 흐름의 문", type: "choice", ask: "바닥 글씨: \"구름이 생기지 않는 길로 가라.\" 사막 표본실로 가는 문을 골라라.",
-        options: ["↑ 상승 기류의 문", "↓ 하강 기류의 문", "→ 수평 이동의 문"], answer: "↓ 하강 기류의 문",
-        clues: ["🏜 메모: 공기가 내려오는 곳은 맑고 건조하다", "🏜 메모: 적도에서 데워진 공기는 올라가며 비를 뿌린다", "🏜 메모: 비를 뿌린 마른 공기는 위도 30° 부근에서 내려온다", "🏜 메모: 사막은 주로 위도 30° 부근에 있다"],
-        hints: ["(구름은 공기가 올라갈 때 생겨.)", "(위도 30°에서 공기는 위로? 아래로?)", "(하강 기류!)"] },
+      // 버튼 4개를 순서대로 4번(같은 버튼 여러 번 가능 → 256가지). 버튼 자리는 팀마다 섞음
+      { id: "f4a", title: "공기 흐름의 문", type: "seq",
+        ask: "문 글씨: \"사막 표본실 문은 적도에서 출발한 공기가 한 바퀴 도는 순서대로 눌러야 열린다.\" 버튼을 순서대로 네 번 눌러라.",
+        steps: ["⬆ 위로 올라감", "➡ 높은 하늘에서 극 쪽으로", "⬇ 아래로 내려옴", "⬅ 지표를 따라 적도 쪽으로"],
+        clues: ["🏜 메모: 적도에서 데워진 공기는 위로 올라가며 비를 뿌린다", "🏜 메모: 올라간 공기는 높은 하늘에서 극 쪽으로 이동한다",
+          "🏜 메모: 비를 뿌린 마른 공기는 위도 30° 부근에서 아래로 내려온다 — 그래서 사막이 생긴다", "🏜 메모: 내려온 공기는 지표를 따라 적도로 돌아간다(무역풍)"],
+        hints: ["(적도는 뜨거워. 뜨거운 공기는 어느 쪽으로 움직일까?)", "(올라간 공기는 어디로 가야 다시 내려올 수 있을까?)", "(사막은 공기가 내려오는 위도 30° 근처. 내려온 공기는 무역풍이 되어…)"] },
       { id: "f4b", title: "모래 표본병", type: "code", ask: "진짜 사막 모래가 든 표본병의 번호를 작은 수부터 붙여 써라.", answer: desertAns,
         clues: bottles.map(b => `🧪 표본병 ${b.no}: 위도 ${b.lat}, 1년 강수량 ${b.rain} mm`).concat(["📝 쪽지: 위도만 보고 고르면 함정에 빠진다"]),
         hints: ["(사막을 정하는 기준은 위도가 아니라 비의 양이야.)", "(사막은 1년 강수량이 몇 mm 이하인 곳이었더라… 250 mm!)", "(강수량 250 mm 이하인 병 두 개를 찾아.)"] },
@@ -128,10 +145,10 @@ export function buildPuzzles(seed, code, no, level = "hard") {
         hints: ["(조각에 적힌 사건들, 45쪽 연표에서 봤어.)", "(1992 협약 → 1997 교토 → 2015 파리 → 2021 IPCC → 2050 탄소 중립)", "(순서대로 놓은 숫자를 출석부에서 원소 기호로 바꿔 읽어!)"] },
     ],
   ];
-  const NAMES = { f3b: "레버", f4a: "문" };
+  const NAMES = {};
   // 뺀 퍼즐은 자리(퍼즐 칸 번호)를 지키려고 off로만 표시 → 지도에 안 보이고 단서도 안 놓임
   const off = new Set(OFF[level]), over = OVERRIDE[level] ?? {};
-  return { level, floors: floors.map(fl => fl.map(pz => ({ ...(pz.type === "code" ? pz : hide(pz, r, NAMES[pz.id])), ...LINKS[pz.id], ...(over[pz.id] ?? {}), ...(off.has(pz.id) ? { off: true } : {}) }))),
+  return { level, floors: floors.map(fl => fl.map(pz => ({ ...prep(pz, r, NAMES[pz.id]), ...LINKS[pz.id], ...(over[pz.id] ?? {}), ...(off.has(pz.id) ? { off: true } : {}) }))),
     pieces, pieceFrom, word: word.join("").toUpperCase() };
 }
 
@@ -172,6 +189,13 @@ export function clueSpots(seed, code, floors, f, map) {
   const tiles = shuffle(pool, r);
   return all.flatMap(([ff, pz], p) => pz.clues.map((t, j) => ({ key: `${pz.id}-${j}`, pz: pz.title, t, p, j, f: pz.at?.[j] ?? ff })))
     .filter(c => c.f === f).map((c, i) => ({ ...c, x: tiles[i % tiles.length][0], y: tiles[i % tiles.length][1] }));
+}
+// 책상 미니게임: 책상(D) 위 단서 4개 중 1개꼴로, 그 단서는 미니게임을 풀어야 나옴. salt(반 씨앗값+팀 코드)·단서 키로 정해져 팀원 기기가 모두 같음
+export const MINI_KINDS = ["nonsense", "wire", "picture"];
+export function miniGameOf(c, map, salt = "") {
+  if (map[c.y]?.[c.x] !== "D") return null;
+  const h = hash(salt + c.key + "mini") >>> 0;
+  return h % 4 === 0 ? MINI_KINDS[(h >>> 4) % 3] : null;
 }
 // 단서 주인: 접속 중인 팀원(uid 정렬)에게 돌아가며. 팀원이 나가면 남은 사람끼리 다시 나눔
 export const clueOwner = (c, ids) => { const s = [...ids].sort(); return s[(c.j + c.p) % s.length]; };

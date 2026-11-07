@@ -177,9 +177,15 @@ function door(vert, kind) { // vert: 좌우로 통하는 문(세로 벽). kind: 
   return art(`O${vert}${kind}`, (r) => {
     const panel = kind === "G" ? "#8a2a2a" : kind === "r" ? "#8a929c" : "abc".includes(kind) ? "#6a5a7a" : "#9c6b3c";
     const frame = "#3e2a18", glass = kind === "G" ? "#2a1010" : "#a9d3e6";
-    if (vert) { // 위에서 본 문틀: 바닥 위로 문짝이 얇게
-      r(0, 0, 32, 32, "#2a2440"); r(0, 4, 32, 24, "#8b6a4a"); r(0, 4, 32, 2, frame); r(0, 26, 32, 2, frame);
-      r(13, 6, 6, 20, panel); r(13, 6, 1, 20, frame); r(18, 6, 1, 20, frame); r(14, 15, 4, 2, "#e8d080");
+    if (vert) { // 세로 벽(복도 옆)의 문: 위에서 보면 벽 줄을 따라 선 얇은 문짝. 위아래는 벽 끝(문설주), 양옆은 문턱
+      r(0, 0, 32, 32, "#8b6a4a"); r(0, 0, 32, 32, "rgba(0,0,0,0.15)");      // 나무 문턱
+      r(10, 0, 12, 4, "#2a2440"); r(10, 28, 12, 4, "#2a2440"); r(10, 3, 12, 1, "#4b4468"); r(10, 28, 12, 1, "#4b4468"); // 문설주
+      r(12, 4, 8, 24, panel); r(12, 4, 1, 24, "#00000055"); r(19, 4, 1, 24, "#ffffff33"); // 문짝(두께)
+      r(14, 8, 4, 7, glass); r(14, 8, 4, 1, frame);                         // 문 유리(좁게)
+      if (kind === "G") for (const y of [9, 12]) r(14, y, 4, 1, "#5a5a60");
+      r(10, 18, 2, 3, "#f0d27a"); r(20, 18, 2, 3, "#f0d27a");               // 양쪽 손잡이
+      if ("abc".includes(kind)) r(12, 21, 8, 3, "#c8c8d0");
+      r(0, 30, 32, 2, "rgba(0,0,0,0.25)");
       return;
     }
     r(0, 0, 32, 32, frame); r(0, 0, 32, 2, "#4b4468");
@@ -237,7 +243,7 @@ export function drawTile(ctx, map, f, x, y, px, py, T) {
   const c = map[y][x], K = kindsOf(map, f), k = K.k[y * map[0].length + x], put = cv => ctx.drawImage(cv, px, py, T + 1, T + 1);
   if (c === WALL) {
     const below = map[y + 1]?.[x], edge = [[0, -1, 1], [1, 0, 2], [0, 1, 4], [-1, 0, 8]].reduce((m, [dx, dy, b]) => { const n = map[y + dy]?.[x + dx]; return n && n !== WALL ? m | b : m; }, 0);
-    return put(wall(below && below !== WALL ? 1 : 0, edge, f === 0 ? 1 : 0));
+    return put(wall(below && below !== WALL && !BOUND.includes(below) ? 1 : 0, edge, f === 0 ? 1 : 0)); // 아래가 문이면(세로 벽의 문) 앞면 없음
   }
   if (BOUND.includes(c)) return put(door(map[y][x - 1] !== WALL && map[y][x + 1] !== WALL ? 1 : 0, c));
   if (c === "Y") return put(elevator());
