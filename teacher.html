@@ -35,7 +35,7 @@
   #clock { font-size:44px; font-weight:800; font-variant-numeric:tabular-nums; }
   #state { padding:4px 10px; border-radius:99px; background:var(--line); font-size:14px; }
   #controls { display:flex; flex-wrap:wrap; gap:8px; }
-  #teams { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:12px; }
+  #teams { display:grid; grid-template-columns:repeat(auto-fill, minmax(min(330px, 100%), 1fr)); gap:12px; }
   .team { background:var(--panel); border-radius:14px; padding:14px; display:flex; flex-direction:column; gap:8px; }
   .team h3 { margin:0; display:flex; justify-content:space-between; align-items:baseline; font-size:16px; }
   .team h3 small { color:var(--dim); font-weight:400; }
@@ -44,9 +44,9 @@
   #ranking { display:flex; flex-wrap:wrap; gap:8px; margin:-6px 0 14px; font-size:14px; }
   #ranking span { background:var(--panel); border-radius:99px; padding:4px 12px; }
   #ranking span:first-child { background:var(--hot); color:#fff; font-weight:700; }
-  .row { display:flex; gap:10px; align-items:center; }
-  .row canvas { flex:none; border-radius:6px; background:#0d0b14; }
-  .prog { flex:1; font-size:13px; color:var(--dim); display:grid; gap:6px; }
+  .row { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+  .row canvas { width:100%; height:auto; border-radius:6px; background:#0d0b14; } /* 카드 폭에 맞춰 줄어듦(고정 폭이면 옆 카드를 덮음) */
+  .prog { flex:1; min-width:140px; font-size:13px; color:var(--dim); display:grid; gap:6px; }
   .prog b { color:var(--text); font-size:15px; }
   .bar { height:8px; border-radius:99px; background:var(--line); overflow:hidden; }
   .bar i { display:block; height:100%; background:var(--ok); }
@@ -197,7 +197,7 @@ const floorOf = code => data.progress[code]?.at ?? 1; // 팀이 지금 있는 �
 function miniMap(code, members) {
   const cv = minis[code] = document.createElement("canvas"), dpr = devicePixelRatio || 1, MAP = MAPS[floorOf(code)], S = sizeOf(MAP);
   cv.width = MAP[0].length * S * dpr; cv.height = MAP.length * S * dpr;
-  cv.style.width = MAP[0].length * S + "px"; cv.style.height = MAP.length * S + "px";
+  cv.style.maxWidth = MAP[0].length * S + "px";
   cv.setAttribute("aria-label", `${data.meta.teams[code]}팀 위치 지도`);
   paintMini(cv, code, members);
   return cv;
