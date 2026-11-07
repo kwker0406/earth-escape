@@ -113,7 +113,7 @@
   .modal > .bar h2 { flex:1; font-size:19px; } .modal > .bar .close { align-self:auto; }
   .modal h3 { margin:6px 0 0; font-size:17px; }
   .modal .tab { padding:8px 12px; border-radius:10px; border:1px solid var(--line); background:var(--panel); color:var(--text); font-size:15px; font-weight:700; }
-  .modal .tab.on { border-color:var(--hot); background:#3a2a2a; }
+  .modal .tab.on { border-color:var(--hot); background:#3a2a2a; } .modal .tab:disabled { opacity:.4; }
   .modal .tabs { display:flex; gap:6px; flex-wrap:wrap; }
   .modal .mmap { overflow:auto; touch-action:pan-x pan-y; border-radius:10px; background:#0d0b14; padding:8px; align-self:center; max-width:100%; }
   .pzc { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:8px 10px; flex:none; }
@@ -660,7 +660,9 @@ function renderMinimap() {
   if (me.f === f) dot(me.x, me.y, "#ff7a3d", Math.max(4, s * 1.7));
   const floors = [1, 2, 3, 4];
   box.replaceChildren(bagBar("🗺️ 학교 지도"),
-    el("div", { className: "tabs" }, ...floors.map(k => el("button", { className: "tab" + (k === f ? " on" : ""), textContent: `${k}층${k === me.f ? " (여기)" : ""}`, onclick: () => { mapFloor = k; renderMinimap(); } }))),
+    el("div", { className: "tabs" }, ...floors.map(k => { const been = k <= (progress.floor ?? 1) || k === me.f; // 팀이 한 번이라도 간 층만(어느 층에 있든 볼 수 있음)
+      return el("button", { className: "tab" + (k === f ? " on" : ""), disabled: !been, textContent: been ? `${k}층${k === me.f ? " (여기)" : ""}` : `${k}층 🔒`,
+        title: been ? "" : "아직 안 가 본 층", onclick: () => { mapFloor = k; renderMinimap(); } }); })),
     el("div", { className: "mmap" }, cvm),
     el("p", { className: "sub", textContent: "🟠 나 · ⚪ 팀원 · 🔍 발견한 퍼즐 · ✅ 푼 퍼즐 · 연두 올라가는 계단 · 파랑 내려가는 계단 · 보라 엘리베이터 · 빨강 잠긴 문" }));
 }
