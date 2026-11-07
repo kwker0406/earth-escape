@@ -1,0 +1,73 @@
+{
+  "rules": {
+    "classes": {
+      ".read": "auth != null && auth.token.email === 'k4366941@gmail.com' && auth.token.email_verified === true",
+      ".write": "auth != null && auth.token.email === 'k4366941@gmail.com' && auth.token.email_verified === true"
+    },
+    "codes": {
+      ".read": "auth != null && auth.token.email === 'k4366941@gmail.com' && auth.token.email_verified === true",
+      ".write": "auth != null && auth.token.email === 'k4366941@gmail.com' && auth.token.email_verified === true",
+      "$code": { ".read": "auth != null" }
+    },
+    "sessions": {
+      "$sid": {
+        ".read": "auth != null && auth.token.email === 'k4366941@gmail.com' && auth.token.email_verified === true",
+        ".write": "auth != null && auth.token.email === 'k4366941@gmail.com' && auth.token.email_verified === true",
+        "meta": { ".read": "auth != null" },
+        "players": {
+          "$uid": {
+            ".read": "auth != null && auth.uid === $uid",
+            ".write": "auth != null && auth.uid === $uid",
+            ".validate": "newData.child('team').isString() && newData.child('team').val().matches(/^[A-Z0-9]+$/) && newData.child('slot').isString() && root.child('sessions/' + $sid + '/teams/' + newData.child('team').val() + '/slots/' + newData.child('slot').val()).val() === auth.uid"
+          }
+        },
+        "teams": {
+          "$team": {
+            ".read": "auth != null && root.child('sessions/' + $sid + '/players/' + auth.uid + '/team').val() === $team",
+            "slots": {
+              ".read": "auth != null",
+              "$slot": {
+                ".write": "auth != null && ((data.val() === false && newData.val() === auth.uid && !root.child('sessions/' + $sid + '/teams/' + $team + '/kicked/' + auth.uid).exists()) || (data.val() === auth.uid && newData.val() === false))"
+              }
+            },
+            "kicked": {
+              "$uid": { ".read": "auth != null && auth.uid === $uid" }
+            },
+            "members": {
+              "$uid": {
+                ".write": "auth != null && auth.uid === $uid && root.child('sessions/' + $sid + '/players/' + auth.uid + '/team').val() === $team",
+                ".validate": "newData.child('nick').isString() && newData.child('nick').val().length <= 8 && newData.child('avatar').isNumber()"
+              }
+            },
+            "progress": {
+              ".write": "auth != null && root.child('sessions/' + $sid + '/players/' + auth.uid + '/team').val() === $team",
+              ".validate": "newData.child('score').isNumber() && newData.child('score').val() >= 0 && newData.child('score').val() <= (data.exists() ? data.child('score').val() : 0) + 1000 && newData.child('score').val() >= (data.exists() ? data.child('score').val() : 0) - 10 && newData.child('floor').isNumber() && newData.child('floor').val() >= (data.exists() ? data.child('floor').val() : 0) && newData.child('floor').val() <= (data.exists() ? data.child('floor').val() : 0) + 1 && newData.child('floor').val() <= 5 && (!newData.child('at').exists() || (newData.child('at').isNumber() && newData.child('at').val() >= 0 && newData.child('at').val() <= newData.child('floor').val()))"
+            },
+            "rescue": {
+              ".write": "auth != null && root.child('sessions/' + $sid + '/players/' + auth.uid + '/team').val() === $team",
+              ".validate": "newData.child('f').isNumber() && newData.child('at').isNumber()"
+            },
+            "items": {
+              ".write": "auth != null && root.child('sessions/' + $sid + '/players/' + auth.uid + '/team').val() === $team"
+            },
+            "got": {
+              "$key": {
+                ".write": "auth != null && root.child('sessions/' + $sid + '/players/' + auth.uid + '/team').val() === $team && newData.val() === auth.uid"
+              }
+            },
+            "monster": {
+              ".write": "auth != null && root.child('sessions/' + $sid + '/players/' + auth.uid + '/team').val() === $team",
+              ".validate": "newData.child('n').isNumber() && newData.child('x').isNumber() && newData.child('y').isNumber()"
+            },
+            "pos": {
+              "$uid": {
+                ".write": "auth != null && auth.uid === $uid && root.child('sessions/' + $sid + '/players/' + auth.uid + '/team').val() === $team",
+                ".validate": "newData.child('x').isNumber() && newData.child('y').isNumber()"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
