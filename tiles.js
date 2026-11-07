@@ -15,7 +15,7 @@ function art(key, paint) {
   return cv;
 }
 
-// 칸마다 바닥 종류: hall 복도, room 교실, lock 잠긴 방, jail 보충실, roof 옥상, maze 지하. 벽·문으로 나뉜 구역 단위로 정함
+// 칸마다 바닥 종류: hall 복도, room 교실, lock 잠긴 방, jail 보충실, roof 옥상, maze 조소 2실(어두운 미로). 벽·문으로 나뉜 구역 단위로 정함
 // 교실은 칠판이 있는 쪽(face: l·r·u·d)도 함께 기억 → 책상·의자가 칠판을 바라보게
 const kinds = new WeakMap();
 function kindsOf(map, f) {
@@ -32,7 +32,7 @@ function kindsOf(map, f) {
         if (ch && !BOUND.includes(ch) && !seen[ny * W + nx]) { seen[ny * W + nx] = 1; q.push([nx, ny]); }
       }
     }
-    const furn = /[DBTL]/.test(has), k = f === 0 ? "maze" : has.includes("j") ? "jail" : has.includes(",") ? (furn ? "lock" : "roof") : furn ? "room" : "hall";
+    const furn = /[DBTL]/.test(has), k = has.includes("z") ? "maze" : has.includes("m") ? "room" : has.includes("j") ? "jail" : has.includes(",") ? (furn ? "lock" : "roof") : furn ? "room" : "hall"; // z 조소 2실(어두운 흙바닥), m 조소 1실
     let fc = "l";
     if (boards.length) {
       const avg = (arr, j) => arr.reduce((t, p) => t + (j ? Math.floor(p / W) : p % W), 0) / arr.length;
@@ -232,6 +232,14 @@ const elevator = () => art("Y", (r) => {
   r(26, 14, 2, 4, "#e05050");
 });
 
+// 조각상(조소 1실): 받침대 위 하얀 석고 흉상. 밀 수 있다는 걸 알 수 있게 받침대 옆면을 진하게
+export const statue = () => art("Q", (r) => {
+  r(6, 27, 21, 3, "rgba(0,0,0,0.3)");                                        // 그림자
+  r(7, 19, 18, 9, "#8a8378"); r(7, 19, 18, 2, "#b3ab9f"); r(7, 26, 18, 2, "#5e584f"); // 받침대
+  r(10, 14, 12, 6, "#e9e4da"); r(10, 14, 12, 1, "#ffffff");                  // 어깨
+  r(12, 4, 8, 10, "#f1ede4"); r(12, 4, 8, 1, "#ffffff"); r(19, 5, 1, 9, "#c9c2b5"); // 머리
+  r(13, 8, 2, 1, "#9a9284"); r(17, 8, 2, 1, "#9a9284"); r(15, 11, 2, 1, "#b0a899"); // 눈·입
+});
 const mat = () => art("M", (r) => { // 현관 매트
   r(3, 5, 26, 22, "#7a2e2a"); r(3, 5, 26, 1, "#a8473f"); for (let y = 9; y < 26; y += 4) r(5, y, 22, 1, "#5e221f");
 });

@@ -193,7 +193,7 @@ setInterval(clock, 500);
 // 팀별 작은 지도: 벽과 접속 중인 팀원·괴물 위치. 카드는 그대로 두고 지도만 다시 칠한다.
 const minis = {}, sizeOf = MAP => Math.max(2, Math.min(7, Math.floor(360 / MAP[0].length))); // 큰 층(71칸)도 카드에 들어가게
 const mmss = ms => { const s = Math.floor(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
-const floorOf = code => data.progress[code]?.at ?? 1; // 팀이 지금 있는 층(처음 1층)
+const floorOf = code => { const f = data.progress[code]?.at; return MAPS[f]?.[1] ? f : 1; }; // 팀이 지금 있는 층(처음·옛 기록은 1층)
 function miniMap(code, members) {
   const cv = minis[code] = document.createElement("canvas"), dpr = devicePixelRatio || 1, MAP = MAPS[floorOf(code)], S = sizeOf(MAP);
   cv.width = MAP[0].length * S * dpr; cv.height = MAP.length * S * dpr;

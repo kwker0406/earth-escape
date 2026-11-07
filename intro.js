@@ -94,7 +94,7 @@ export function startIntro(api) {
       if (step === 5 && hidden) { say("🫣 숨었다! 보충쌤은 숨은 학생을 못 봐요. 단, 60초까지만!", 3500); step = 6; }
       if (step === 6 && me.x === 16 && me.y === 10) {
         step = 7; show(el("h2", { textContent: "🎉 연습 끝!" }),
-          el("div", { className: "card" }, "🟩 계단·엘리베이터는 초록 칸에 팀원 절반 넘게 모이면 이동 버튼이 떠요."),
+          el("div", { className: "card" }, "🟩 계단 앞 색칠된 칸에 팀원 절반 넘게 모여 3초 기다리면 자동으로 층을 옮겨요."),
           el("div", { className: "card" }, "🔒 보충쌤에게 잡히면 보충수업실로! 친구가 보충실 문 앞에서 🔍 조사하면 구출돼요."),
           el("div", { className: "card" }, "📜 단서는 팀원마다 다르게 보여요. 주운 단서는 꼭 말로 알려 주세요."),
           el("button", { className: "go", textContent: "팀에게 가기 ▶", onclick: finish }));
@@ -129,7 +129,7 @@ const SCENES = [
   { text: "시험을 망친 우리는 '밤 보충수업'에 불려 왔다. 학교에는 아무도 없다.", draw: "hall" },
   { text: "보충쌤: \"지구 환경 문제를 다 풀기 전엔… 아무도 집에 못 간다!\"", draw: "teacher" },
   { text: "보충쌤에게 잡히면 보충수업실로 끌려간다. 사물함에 숨거나, 친구를 구출하자.", draw: "locker" },
-  { text: "학교 곳곳의 단서를 모아 퍼즐을 풀고, 옥상 문을 열어 탈출하자!", draw: "stairs" },
+  { text: "학교 곳곳의 단서를 모아 퍼즐을 풀고, 1층 현관 자물쇠를 열어 탈출하자!", draw: "stairs" },
 ];
 export function playStory(api) {
   const { $, el } = api;
@@ -155,13 +155,13 @@ export function playStory(api) {
         g.fillStyle = "#f3e9b0"; g.beginPath(); g.arc(250, 40, 16, 0, 7); g.fill(); g.fillStyle = "#0b0a24"; g.beginPath(); g.arc(258, 35, 14, 0, 7); g.fill();
         g.fillStyle = "#1a1528"; g.fillRect(30, 110, 252, 106); g.fillRect(130, 80, 52, 30);
         for (let y = 124; y < 200; y += 22) for (let x = 44; x < 270; x += 26) { g.fillStyle = (x * y) % 7 === 0 ? "#ffd86a" : "#2c2440"; g.fillRect(x, y, 12, 10); }
-      } else if (sc.draw === "hall") { tiles(36, 65, 13, 9); dark(0.35); [0, 1, 2, 3].forEach((k, j) => who(j === 0 ? api.avatar : (api.avatar + j * 2) % 8, 108 + j * 26, 150, "u")); }
-      else if (sc.draw === "teacher") { tiles(36, 65, 13, 9); dark(0.5); who("teacher", 140, 60, "d", 32);
+      } else if (sc.draw === "hall") { tiles(36, 53, 13, 9); dark(0.35); [0, 1, 2, 3].forEach((k, j) => who(j === 0 ? api.avatar : (api.avatar + j * 2) % 8, 108 + j * 26, 150, "u")); }
+      else if (sc.draw === "teacher") { tiles(36, 53, 13, 9); dark(0.5); who("teacher", 140, 60, "d", 32);
         g.fillStyle = "#fff"; g.fillRect(70, 22, 172, 26); g.fillStyle = "#c02626"; g.font = "bold 12px sans-serif"; g.textAlign = "center"; g.fillText("아무도 집에 못 간다!", 156, 39);
         [0, 1, 2].forEach(j => who((api.avatar + j * 3) % 8, 110 + j * 30, 160, "u")); }
-      else if (sc.draw === "locker") { tiles(6, 65, 13, 9); dark(0.3); who("teacher", 190, 120, "l", 28);
+      else if (sc.draw === "locker") { tiles(6, 53, 13, 9); dark(0.3); who("teacher", 190, 120, "l", 28);
         const gr = g.createRadialGradient(156, 150, 20, 156, 150, 150); gr.addColorStop(0, "rgba(0,0,0,0)"); gr.addColorStop(1, "rgba(0,0,0,0.85)"); g.fillStyle = gr; g.fillRect(0, 0, 312, 216); }
-      else { tiles(36, 59, 13, 9); dark(0.25); [0, 1, 2, 3].forEach((k, j) => who(j === 0 ? api.avatar : (api.avatar + j * 2) % 8, 100 + j * 22, 110, "u")); }
+      else { tiles(36, 47, 13, 9); dark(0.25); [0, 1, 2, 3].forEach((k, j) => who(j === 0 ? api.avatar : (api.avatar + j * 2) % 8, 100 + j * 22, 110, "u")); }
       if (sc.draw !== "night" && sc.draw !== "teacher") { g.fillStyle = "rgba(0,0,0,0.15)"; for (let y = 0; y < 216; y += 3) g.fillRect(0, y, 312, 1); } // 옛날 화면 줄무늬
       typed = Math.min(sc.text.length, typed + 0.6); cap.textContent = sc.text.slice(0, Math.floor(typed));
       raf = requestAnimationFrame(draw);

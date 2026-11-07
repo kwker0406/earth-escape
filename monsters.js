@@ -30,10 +30,10 @@ export function phaseAt(gameMs, seed, level) {
 const starts = new WeakMap(); // 지도마다 시작점(S)을 한 번만 찾음. S가 없는 층은 안전 구역 없음
 const startOf = map => { if (!starts.has(map)) { const y = map.findIndex(r => r.includes("S")); starts.set(map, y < 0 ? null : [map[y].indexOf("S"), y]); } return starts.get(map); };
 const dist = (a, b) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
-// 괴물이 갈 수 있는 칸: 벽·사물함·계단·엘리베이터·보충실·잠긴 문이 아닌 칸, 현관(S) 안전 구역 밖. 교실 문(+)과 퍼즐 칸은 다님
+// 괴물이 갈 수 있는 칸: 벽·사물함·계단·보충실·잠긴 문·조소실이 아닌 칸, 현관(S) 안전 구역 밖. 교실 문(+)과 퍼즐 칸은 다님
 export function monsterTile(map, x, y) {
   const c = map[y]?.[x], s = startOf(map);
-  return c !== undefined && !"#DHSjGabcrCKRYVWXBTL".includes(c) && (!s || Math.abs(x - s[0]) + Math.abs(y - s[1]) > SAFE_DIST);
+  return c !== undefined && !"#DHSjGabcrCKRYVWXBTLmzQ".includes(c) && (!s || Math.abs(x - s[0]) + Math.abs(y - s[1]) > SAFE_DIST); // m·z·Q: 조소 1·2실(보충쌤 못 들어감)
 }
 export const DOOR_WAIT_MS = 2000; // 문을 지나면 2초 뒤에 따라 들어옴
 export const SEEK_MS = 1500;      // 사물함 앞에서 "어디에 숨었을까~" 하고 기다리는 시간
