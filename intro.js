@@ -66,7 +66,7 @@ export function startIntro(api) {
   };
   const openBoard = () => {
     show(el("h2", { textContent: "🧑‍🏫 연습 교실 칠판" }), el("div", { className: "board" },
-      el("p", { textContent: "오늘의 규칙" }), el("p", { textContent: "단서는 팀원마다 다르게 보여요!" }), el("p", { textContent: "주운 단서는 말로 알려 주기" }),
+      el("p", { textContent: "오늘의 규칙" }), el("p", { textContent: "단서는 팀원마다 다르게 보여요!" }), el("p", { textContent: "주운 단서는 말로 알려 주기" }), el("p", { textContent: "한 층의 퍼즐은 나눠 맡아 동시에 풀기" }),
       el("p", { className: "clue", textContent: "✎ 보충쌤이 오면 사물함에 숨기" })));
     if (step === 4) afterClose = () => { step = 5; };
   };
@@ -95,8 +95,9 @@ export function startIntro(api) {
       if (step === 6 && me.x === 16 && me.y === 10) {
         step = 7; show(el("h2", { textContent: "🎉 연습 끝!" }),
           el("div", { className: "card" }, "🟩 계단 앞 색칠된 칸에 팀원 절반 넘게 모여 3초 기다리면 자동으로 층을 옮겨요."),
-          el("div", { className: "card" }, "🔒 보충쌤에게 잡히면 보충수업실로! 친구가 보충실 문 앞에서 🔍 조사하면 구출돼요."),
+          el("div", { className: "card" }, "🔒 보충쌤에게 잡히면 보충학습실로! 친구가 보충실 문 앞에서 🔍 조사하면 구출돼요."),
           el("div", { className: "card" }, "📜 단서는 팀원마다 다르게 보여요. 주운 단서는 꼭 말로 알려 주세요."),
+          el("div", { className: "card" }, "🤝 한 층에 퍼즐이 여러 개예요. 다 같이 하나에 매달리지 말고 나눠 맡아 동시에 풀어요!"),
           el("button", { className: "go", textContent: "팀에게 가기 ▶", onclick: finish }));
         afterClose = finish;
       }
