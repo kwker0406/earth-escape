@@ -247,7 +247,7 @@ const ITEM = { flash: "🔦 손전등", a: "🔑 보건실 열쇠", b: "🔑 평
 const mine = () => Object.keys(items).filter(id => items[id]?.by === me.uid);
 
 // ── 입장 ──
-CHARS.forEach((c, i) => $("avatars").append(el("button", { innerHTML: `<img src="${sprite(i).toDataURL()}" alt="" style="width:70%;background:#d9d2c4;border-radius:10px">${c.name}`, ariaLabel: c.name,
+CHARS.forEach((c, i) => $("avatars").append(el("button", { innerHTML: `<img src="${c.png ? `chars/${c.png}_south.png` : sprite(i).toDataURL()}" alt="" style="width:70%;background:#d9d2c4;border-radius:10px">${c.name}`, ariaLabel: c.name,
   onclick: () => { avatar = i; [...$("avatars").children].forEach((c, j) => c.classList.toggle("sel", j === i)); } })));
 $("avatars").children[0].classList.add("sel");
 

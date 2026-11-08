@@ -2,7 +2,7 @@
 // 그림 파일 없이 코드로 점을 찍어 만들고, 한 번 만든 그림은 기억해 둔다(sprite).
 // 교복: 검은 머리 학생은 남색 블레이저 + 흰 셔츠, 금발 학생은 블레이저 없이 흰 셔츠. 여학생 붉은 리본 + 남색 치마, 남학생 붉은 넥타이 + 남색 바지
 export const CHARS = [
-  { name: "보브 안경", emoji: "👓", girl: 1, hair: "bob", color: "black", glasses: 1 },
+  { name: "보브 안경", emoji: "👓", girl: 1, hair: "bob", color: "black", glasses: 1, png: "bob" }, // png: chars/ 폴더의 PixelLab 그림을 씀
   { name: "긴 생머리", emoji: "👩", girl: 1, hair: "long", color: "black" },
   { name: "땋은 머리", emoji: "👧", girl: 1, hair: "braid", color: "black" },
   { name: "금발 생머리", emoji: "👱‍♀️", girl: 1, hair: "long", color: "blond" },
@@ -247,6 +247,13 @@ export function sprite(kind, dir = "d", frame = 0) {
   const N = kind === "teacher" ? 48 : 128; // 학생 128×128, 보충쌤 48×48(화면에서는 칸 크기에 맞춰 그림)
   const cv = document.createElement("canvas"); cv.width = cv.height = N;
   const ctx = cv.getContext("2d");
+  const ch = CHARS[kind];
+  if (ch?.png) { // PixelLab 그림: 파일이 늦게 오므로 받는 즉시 같은 캔버스에 그림(걸을 때는 2px 위로)
+    const img = new Image();
+    img.onload = () => { ctx.drawImage(img, 0, frame ? 6 : 8); ctx.globalCompositeOperation = "destination-over"; painter(ctx).oval(64, 121, 22, 3, SHADOW); };
+    img.src = new URL(`./chars/${ch.png}_${{ d: "south", u: "north", r: "east", l: "west" }[dir]}.png`, import.meta.url).href;
+    cache.set(key, cv); return cv;
+  }
   if (dir === "l") { ctx.translate(N, 0); ctx.scale(-1, 1); } // 왼쪽은 오른쪽 모습을 뒤집음
   if (frame) ctx.translate(0, kind === "teacher" ? -1 : -2); // 걸을 때 몸이 살짝 통통 튐
   if (kind === "teacher") teacher(ctx, dir, frame);
