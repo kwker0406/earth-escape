@@ -379,7 +379,7 @@ function stairCheck() {
   if (!z || !playing() || me.jail) { stairWait = ""; stairSince = 0; return; }
   const m = moves(z.ch)[0], [icon, ...rest] = m.label.split(" "), dest = rest.join(" "), ids = onlineIds(), need = Math.floor(ids.length / 2) + 1; // 과반수
   const here = ids.filter(id => { const p = id === me.uid ? me : mates[id]; return p && sameFloor(p) && !p.jail && zoneAt(p.x, p.y)?.ch === z.ch; }).length; // 같은 계단(2칸 중 어느 칸 옆이든)
-  const why = m.locked ? `🔒 ${m.to}층 계단이 잠겨 있어요. 이 층 관문 퍼즐을 풀어야 열려요` : "";
+  const why = m.locked ? (gateOf(me.f) ? `🔒 ${m.to}층 계단이 잠겨 있어요. 이 층 관문 퍼즐을 풀어야 열려요` : `🔒 쉬움 난이도는 ${me.f}층까지예요. 위층은 가지 않아요`) : "";
   if (why || here < need) { stairWait = why || `${icon} 모이는 중 (${here}/${ids.length}명 · ${need}명이 모이면 ${dest} 이동)`; stairSince = 0; return; }
   const key = z.ch + m.to; if (stairKey !== key || !stairSince) { stairKey = key; stairSince = net.serverNow(); }
   const leftMs = STAIR_WAIT_MS - (net.serverNow() - stairSince);

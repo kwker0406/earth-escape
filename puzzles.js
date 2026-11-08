@@ -14,10 +14,10 @@ const WORDS3 = [["Li", "O", "N"], ["Ne", "O", "N"], ["B", "O", "Ne"], ["C", "O",
 // 난이도: hard 전체 12개(조각 5) / normal 사막화 원인 빼고 11개(조각 4) / easy 9개(조각 3, 다른 층 단서 없음)
 // 흐름: 1층 → 2층 → 3층(손전등) → 1층 조소 1실(조각상) → 조소 2실(어두운 미로, IPCC 경고판) → 현관 탈출문
 export const LEVELS = { easy: "쉬움", normal: "보통", hard: "어려움" };
-const OFF = { hard: [], normal: ["f4c"], easy: ["f4c", "f4a", "f4b"] };
-const PIECES = { hard: ["f1a", "f2b", "f3c", "f4b", "f4c"], normal: ["f1a", "f2b", "f3c", "f4b"], easy: ["f1a", "f2b", "f3c"] };
+const OFF = { hard: [], normal: ["f4c"], easy: ["f4c", "f4a", "f3a", "f3b"] }; // 쉬움은 1·2층만(3층 계단 잠김)
+const PIECES = { hard: ["f1a", "f2b", "f3c", "f4b", "f4c"], normal: ["f1a", "f2b", "f3c", "f4b"], easy: ["f2b", "f3c", "f4b"] };
 const OVERRIDE = {
-  easy: { f1a: { at: {} }, f2b: { at: {} }, r1: { at: {} }, r2: { at: {} } }, // at: {} = 단서가 모두 그 퍼즐이 있는 층에
+  easy: { f1a: { at: {} }, f2b: { at: {} }, r1: { at: {} }, r2: { at: {} }, f3c: { at: {} }, f4b: { at: {} }, f2a: { gives: { flash: 1, name: "손전등" } } }, // 쉬움: 손전등은 2층 라운지에서 // at: {} = 단서가 모두 그 퍼즐이 있는 층에
 };
 const WORDS = [["B", "O", "O", "K", "S"], ["S", "P", "O", "O", "N"], ["S", "O", "C", "K", "S"], ["S", "H", "O", "C", "K"], ["P", "H", "O", "Ne", "S"], ["C", "H", "O", "C", "O"]];
 // 45쪽 연표(연도 순). 조각 카드에는 사건 이름만 적고 연도는 학생이 떠올려야 한다
@@ -158,8 +158,13 @@ export function buildPuzzles(seed, code, no, level = "hard") {
   const talk = pz => TALK[pz.id] ? { ...pz, clues: [...pz.clues, "💬 엿들은 잡담 — " + TALK[pz.id]] } : pz;
   // 뺀 퍼즐은 자리(퍼즐 칸 번호)를 지키려고 off로만 표시 → 지도에 안 보이고 단서도 안 놓임
   const off = new Set(OFF[level]), over = OVERRIDE[level] ?? {};
-  return { level, floors: floors.map(fl => fl.map(pz => ({ ...talk(prep(pz, r, NAMES[pz.id])), ...LINKS[pz.id], ...(over[pz.id] ?? {}), ...(off.has(pz.id) ? { off: true } : {}) }))),
-    pieces, pieceFrom, word: word.join("").toUpperCase() };
+  const out = floors.map(fl => fl.map(pz => ({ ...talk(prep(pz, r, NAMES[pz.id])), ...LINKS[pz.id], ...(over[pz.id] ?? {}), ...(off.has(pz.id) ? { off: true } : {}) })));
+  if (level === "easy") { // 쉬움은 3층에 안 감 → 엘니뇨 채점표·사막 모래병을 2층 퍼즐 칸 4(2-3반 교탁)·5(서양화 1실 교탁)로 옮김
+    const move = (id, from, to) => { const pz = out[3].find(p => p.id === id); out[3] = out[3].filter(p => p !== pz); out[2].push({ ...pz, ask: pz.ask.replace(from, to), ...(id === "f4b" ? { title: "정물 소품 모래병" } : {}) }); };
+    move("f3c", "평가실 책상 위 채점표", "2-3반 교탁 위에 놓고 간 채점표");
+    move("f4b", "3교무실 압수품 상자에", "서양화 1실 정물 소품 상자에");
+  }
+  return { level, floors: out, pieces, pieceFrom, word: word.join("").toUpperCase() };
 }
 
 // 층을 오가게 만드는 연결. gives: 풀면 얻는 것(up 위층 계단, key 열쇠 문자, flash 손전등),
