@@ -198,7 +198,7 @@
 <script type="module">
 import * as net from "./net.js";
 import { MAPS, ROOMS, AREAS } from "./maps.js";
-import { mazeOf, mazeStep, MAZE_STEP_MS } from "./monsters.js";
+import { mazeOf, mazeStep, MAZE_STEP_MS, MAZE_REST_MS } from "./monsters.js";
 import { phaseAt, spawnTile, stepToward, nextTarget, patrolStep, sightTiles, hostOf, STEP_MS as MON_STEP_MS, PATROL_STEP_MS,
   HIDE_WARN_MS, HIDE_MAX_MS, HIDE_COOLDOWN_MS, PLAYER_STEP_MS, CHASE_MS, SEEK_DIST, seekStep, doorWait, LOOK_MS } from "./monsters.js";
 import { JAIL_QUESTIONS } from "./questions.js";
@@ -879,9 +879,11 @@ function runMaze(now) {
   m2Step = now - m2Step < MAZE_STEP_MS * 2 ? m2Step + MAZE_STEP_MS : now;
   const players = Object.entries(here).filter(([, m]) => m.online && m.x != null)
     .map(([id, m]) => id === me.uid ? { id, x: me.x, y: me.y, jail: me.jail } : { id, x: m.x, y: m.y, jail: m.jail });
+  if (mon2?.rest > t) { mon2 = { ...mon2, by: me.uid, t }; return net.setMonster2(mon2); } // 잡은 뒤 2초는 제자리('살아 있음'만 알림)
   const cur = mon2?.x != null ? mon2 : { ...mz.home, h: 0, tid: null };
-  const go = mazeStep(MAP, cur, players);
-  mon2 = { n: 0, x: go.x, y: go.y, h: go.h ?? 0, tid: go.tid ?? null, say: go.tid ? "거기 누구냐!" : null, by: me.uid, t };
+  const go = mazeStep(MAP, cur, players), hit = go.tid && players.find(p => p.id === go.tid && p.x === go.x && p.y === go.y);
+  mon2 = { n: 0, x: go.x, y: go.y, h: go.h ?? 0, tid: hit ? null : go.tid ?? null, by: me.uid, t,
+    rest: hit ? t + MAZE_REST_MS : 0, cid: hit ? hit.id : null, say: hit ? "잡았다!" : go.tid ? "거기 누구냐!" : null }; // cid: 이번에 잡힌 학생(그 학생만 잡힘)
   net.setMonster2(mon2);
 }
 // 화면 위치(rx, ry)를 목표 칸(x, y)으로 한 프레임에 최대 v칸씩 옮김. 2칸 넘게 벌어지면(순간이동·재접속) 바로 그 자리로
@@ -937,7 +939,7 @@ function frame(now) {
     hideMs = Math.max(0, hideMs + (hidden ? dt : -dt));
     if (hidden && hideMs >= HIDE_MAX_MS) caughtNow();
     else if ((!hidden || me.seen) && net.serverNow() > grace && active?.x === me.x && active?.y === me.y) caughtNow();
-    else if (maze2() && net.serverNow() > grace && mon2.x === me.x && mon2.y === me.y) caughtNow('"미로에서 딱 걸렸네!"');
+    else if (maze2() && net.serverNow() > grace && mon2.x === me.x && mon2.y === me.y && (!(mon2.rest > net.serverNow()) || mon2.cid === me.uid)) caughtNow('"미로에서 딱 걸렸네!"'); // 잡은 뒤 2초는 다른 학생이 지나가도 안 잡힘
   }
   const near = active && Math.abs(active.x - me.x) + Math.abs(active.y - me.y) <= 3;
   $("mapbox").classList.toggle("danger", playing() && !me.jail && !!near);

@@ -149,6 +149,7 @@ export const doorWait = (map, from, to, t) => (from.x !== to.x || from.y !== to.
 // 미로 바닥(z)만 다니고, 학생 걸음의 80% 속도. 걸어서 2칸 안에 들어온 학생만 알아채고, 쫓다가 걸어서 5칸 이상 벌어지면 놓치고 순찰로.
 // 목표(경고판 퍼즐 칸) 둘레 걸어서 4칸 안에는 못 들어감 → 거기까지 가면 안전
 export const MAZE_STEP_MS = Math.round(PLAYER_STEP_MS / 0.8), MAZE_SEE = 2, MAZE_LOSE = 5, MAZE_GUARD = 4;
+export const MAZE_REST_MS = 2000; // 한 명을 잡으면 2초 동안 멈춤(그동안 옆을 지나가도 안 잡힘)
 const mazeMemo = new WeakMap();
 const walkMap = (map, src, pass) => { // src에서 pass 칸으로만 걸을 때 걸음 수: Map("x,y" → n)
   const d = new Map([[`${src.x},${src.y}`, 0]]), q = [[src.x, src.y]];
