@@ -17,7 +17,7 @@ export const LEVELS = { easy: "쉬움", normal: "보통", hard: "어려움" };
 const OFF = { hard: [], normal: ["f4c"], easy: ["f4c", "f4a", "f4b"] };
 const PIECES = { hard: ["f1a", "f2b", "f3c", "f4b", "f4c"], normal: ["f1a", "f2b", "f3c", "f4b"], easy: ["f1a", "f2b", "f3c"] };
 const OVERRIDE = {
-  easy: { f1a: { at: {} }, f2b: { at: {} }, r1: { at: {} } }, // at: {} = 단서가 모두 그 퍼즐이 있는 층에
+  easy: { f1a: { at: {} }, f2b: { at: {} }, r1: { at: {} }, r2: { at: {} } }, // at: {} = 단서가 모두 그 퍼즐이 있는 층에
 };
 const WORDS = [["B", "O", "O", "K", "S"], ["S", "P", "O", "O", "N"], ["S", "O", "C", "K", "S"], ["S", "H", "O", "C", "K"], ["P", "H", "O", "Ne", "S"], ["C", "H", "O", "C", "O"]];
 // 45쪽 연표(연도 순). 조각 카드에는 사건 이름만 적고 연도는 학생이 떠올려야 한다
@@ -96,8 +96,9 @@ export function buildPuzzles(seed, code, no, level = "hard") {
           "🗿 〈경고〉 설명판 조각 — +2 ℃: 가장 더운 날 2.6 ℃↑, 극한 가뭄 2.4배, 폭우 1.7배, 강설량 9 % 감소", "🗿 〈경고〉 설명판 조각 — +4 ℃: 가장 더운 날 5.1 ℃↑, 극한 가뭄 4.1배, 폭우 2.7배, 강설량 26 % 감소"],
         hints: ["(설명판이 네 조각으로 깨져 학교 곳곳에 흩어졌어. 물어본 온도의 조각을 가진 사람을 찾아.)", "(산업화 이전보다 몇 ℃ 올랐을 때인지 먼저 확인!)", "(그 조각에서 물어본 항목의 숫자를 그대로 써.)"] },
       { id: "r2", page: "45", title: "탈출문", type: "code", final: true, needs: "r1",
-        ask: "현관 탈출문 자물쇠(영어 대문자). 문에 새겨진 글: \"조각을 연도 순서대로 놓아라. 보충쌤은 출석을 원자 번호로만 부른다.\"", answer: word.join("").toUpperCase(),
-        clues: ["📜 조각 카드는 '단서' 가방에 있다(팀 공용)", "📜 보충쌤 출석부(원자 번호 1~20)도 가방에 있다", "📝 쪽지: 사건이 일어난(정해진) 해를 떠올려라", "📝 쪽지: 얻은 순서대로 놓으면 함정"],
+        ask: "현관 탈출문 자물쇠(영어 대문자). 문에 새겨진 글: \"숫자 조각을 바르게 늘어놓고, 보충쌤처럼 읽어라.\"", answer: word.join("").toUpperCase(),
+        clues: ["📋 보충쌤 출석부 한 장: 보충쌤은 학생 이름 대신 원자 번호로 출석을 부른다 — \"1번 H! 2번 He! 3번 Li!…\" (출석부 전체는 이 쪽지를 주우면 가방에 생김)",
+          "📝 쪽지: 숫자 조각의 숫자는 출석 번호다", "📝 쪽지: 조각에 적힌 사건이 일어난(정해진) 해를 떠올려, 이른 것부터 놓아라", "📝 쪽지: 얻은 순서대로 놓으면 함정"],
         hints: ["(조각에 적힌 사건들, 45쪽 연표에서 봤어.)", "(1992 협약 → 1997 교토 → 2015 파리 → 2021 IPCC → 2050 탄소 중립)", "(순서대로 놓은 숫자를 출석부에서 원소 기호로 바꿔 읽어!)"] },
     ],
     [ // 2층 · 37쪽 + 2교무실(43쪽)
@@ -110,7 +111,7 @@ export function buildPuzzles(seed, code, no, level = "hard") {
         hints: ["(공장 굴뚝, 소 농장, 바다… 어디서 무엇이 나올까?)", "(유기물이 썩을 때 나오는 기체는 이름에 '메'가 들어가.)", "(이산화 탄소-화석 연료, 메테인-가축, 수증기-증발)"] },
       // 버튼 4개를 순서대로 4번(같은 버튼 여러 번 가능 → 256가지). 버튼 자리는 팀마다 섞음
       { id: "f4a", page: "43", title: "2교무실 열쇠 보관함", type: "seq",
-        ask: "2교무실 열쇠 보관함 글씨: \"3교무실 열쇠는 적도에서 출발한 공기가 한 바퀴 도는 순서대로 눌러야 나온다.\" 버튼을 순서대로 네 번 눌러라.",
+        ask: "2교무실 열쇠 보관함. 화살표 버튼 네 개뿐, 아무 설명도 없다. 버튼을 순서대로 네 번 눌러라.",
         steps: ["⬆ 위로 올라감", "➡ 높은 하늘에서 극 쪽으로", "⬇ 아래로 내려옴", "⬅ 지표를 따라 적도 쪽으로"],
         clues: ["📎 교무 수첩: 적도에서 데워진 공기는 위로 올라가며 비를 뿌린다", "📎 교무 수첩: 올라간 공기는 높은 하늘에서 극 쪽으로 이동한다",
           "📎 교무 수첩: 비를 뿌린 마른 공기는 위도 30° 부근에서 아래로 내려온다 — 그래서 사막이 생긴다", "📎 교무 수첩: 내려온 공기는 지표를 따라 적도로 돌아간다(무역풍)"],
@@ -127,10 +128,10 @@ export function buildPuzzles(seed, code, no, level = "hard") {
         levers: [["무역풍 세기", "강하게", "약하게", "D"], ["동태평양 용승", "강하게", "약하게", "D"], ["동태평양 바닷물 온도", "높게", "낮게", "U"], ["서태평양(인도네시아) 강수량", "많게", "적게", "D"]],
         clues: [], // 레버 뜻 카드 4장만(단서 4개)
         hints: ["(동쪽 바다를 데우려면 따뜻한 물이 동쪽에 남아야 해.)", "(바람이 약해지면 차가운 물을 끌어올리는 용승은 어떻게 될까?)", "(비구름은 따뜻한 바다를 따라 동쪽으로 옮겨 가. 그럼 서태평양의 비는?)"] },
-      { id: "f3c", page: "41~42", title: "서술형 채점표", type: "pair", ask: "평가실 책상 위 채점표: \"무역풍이 약해졌을 때(엘니뇨) 각 지역의 피해를 바르게 짝지은 답만 정답.\" 정답을 짝지어라.",
-        left: ["서태평양(인도네시아)", "동태평양(페루)"], right: ["가뭄·산불", "홍수·어획량 감소"],
-        clues: ["☁ 채점 기준: 따뜻한 바다 위에서는 공기가 올라가 구름과 비가 많아진다", "☁ 채점 기준: 엘니뇨 때 비가 많이 오는 곳은 동쪽으로 옮겨 간다", "🐟 채점 기준: 깊은 곳의 영양분이 덜 올라오면 물고기가 줄어든다", "☀ 채점 기준: 비구름이 떠난 곳은 메마른다"],
-        hints: ["(비구름이 어디로 옮겨 갔는지 생각해 봐.)", "(비가 많아진 쪽은 홍수, 비구름이 떠난 쪽은 가뭄.)", "(서태평양: 가뭄·산불 / 동태평양: 홍수·어획량 감소)"] },
+      { id: "f3c", page: "41~42", title: "서술형 채점표", type: "pair", ask: "평가실 책상 위 채점표: \"무역풍이 약해졌을 때(엘니뇨) 세 곳에서 일어나는 일을 모두 바르게 짝지은 답만 정답.\" 정답을 짝지어라.",
+        left: ["서태평양(인도네시아)", "동태평양 연안(페루) 육지", "동태평양 앞바다 어장"], right: ["비가 줄어 가뭄·산불", "비가 늘어 홍수", "용승이 약해져 어획량 감소"],
+        clues: ["☁ 채점 기준: 엘니뇨 때 따뜻한 바닷물과 비구름이 동쪽으로 옮겨 간다"],
+        hints: ["(비구름이 어디로 옮겨 갔는지 생각해 봐. 기호 카드 세 장도 다 모아야 해.)", "(비가 많아진 쪽은 홍수, 비구름이 떠난 쪽은 가뭄, 차가운 물이 덜 올라오는 바다는 물고기가 줄어.)", "(인도네시아: 가뭄·산불 / 페루 육지: 홍수 / 페루 앞바다: 어획량 감소)"] },
       { id: "f4b", page: "43", title: "압수된 모래병", type: "code", ask: "3교무실 압수품 상자에 모래병이 들어 있다. 진짜 사막 모래가 든 병의 번호를 작은 수부터 붙여 써라.", answer: desertAns,
         clues: bottles.map(b => `🧪 모래병 ${b.no}: 위도 ${b.lat}, 1년 강수량 ${b.rain} mm`).concat(["📝 쪽지: 위도만 보고 고르면 함정에 빠진다"]),
         hints: ["(사막을 정하는 기준은 위도가 아니라 비의 양이야.)", "(사막은 1년 강수량이 몇 mm 이하인 곳이었더라… 250 mm!)", "(강수량 250 mm 이하인 병 두 개를 찾아.)"] },
@@ -140,9 +141,24 @@ export function buildPuzzles(seed, code, no, level = "hard") {
     ],
   ];
   const NAMES = {};
+  const TALK = {
+    f1b: "과학쌤: \"저울 쪽지 말이야, 반사된 건 애초에 흡수가 안 된 거라 빼야 하는데 애들이 꼭 넣더라고.\"",
+    f1a: "미술쌤: \"크로키북 찢어진 거 봤어요? 받은 것끼리, 내보낸 것끼리 더하면 똑같이 맞아떨어진대요. 복사 평형이라나.\"",
+    r1: "조소쌤: \"〈경고〉 설명판이 깨져서 조각이 학교 여기저기로 흩어졌어요. 온도마다 한 조각씩이에요.\"",
+    r2: "행정실쌤: \"현관 자물쇠는 영어 단어래요. 숫자 조각을 글자로 바꾸는 법은 보충쌤만 안다던데….\"",
+    f2a: "보건쌤: \"라운지 벽 온도계 두 개, 하나는 대기가 없을 때 지구 온도래요. 그 차이가 온실 효과 덕분이라던데.\"",
+    f2b: "보건쌤: \"기록표 오른쪽 칸엔 기호(㉠㉡㉢)만 붙어 있어요. 기호 카드를 찾아야 무슨 뜻인지 알 수 있죠.\"",
+    f4a: "교무쌤: \"3교무실 열쇠 보관함 비번? 적도에서 데워진 공기가 한 바퀴 도는 순서래요. 수첩 네 장에 한 단계씩 적어서 1층이랑 3층에 두고 왔는데….\"",
+    f3a: "교감쌤: \"지구본 바람 스티커가 떨어졌네. 위도 칸에 기호만 붙어 있으니 기호 카드부터 찾아요.\"",
+    f3b: "만화쌤: \"웹툰 조종기 레버는 올리거나 내리거나 둘 중 하나예요. 레버마다 뭘 조절하는지는 카드에 적혀 있어요.\"",
+    f3c: "평가쌤: \"채점표 짝짓기, 엘니뇨 때 비구름이 어디로 갔는지 알면 반은 풀려요. 나머지는 차가운 물이 덜 올라오는 곳!\"",
+    f4b: "3교무쌤: \"압수한 모래병이요? 위도만 보면 다 사막 같은데, 진짜 사막은 1년에 비가 얼마나 오느냐로 정한대요.\"",
+    f4c: "3교무쌤: \"수행평가 카드에 사람 탓이 아닌 원인이랑, 원인이 아닌 피해가 섞여 있어요. 그걸 골라내는 게 문제예요.\"",
+  };
+  const talk = pz => TALK[pz.id] ? { ...pz, clues: [...pz.clues, "💬 엿들은 잡담 — " + TALK[pz.id]] } : pz;
   // 뺀 퍼즐은 자리(퍼즐 칸 번호)를 지키려고 off로만 표시 → 지도에 안 보이고 단서도 안 놓임
   const off = new Set(OFF[level]), over = OVERRIDE[level] ?? {};
-  return { level, floors: floors.map(fl => fl.map(pz => ({ ...prep(pz, r, NAMES[pz.id]), ...LINKS[pz.id], ...(over[pz.id] ?? {}), ...(off.has(pz.id) ? { off: true } : {}) }))),
+  return { level, floors: floors.map(fl => fl.map(pz => ({ ...talk(prep(pz, r, NAMES[pz.id])), ...LINKS[pz.id], ...(over[pz.id] ?? {}), ...(off.has(pz.id) ? { off: true } : {}) }))),
     pieces, pieceFrom, word: word.join("").toUpperCase() };
 }
 
@@ -151,15 +167,16 @@ export function buildPuzzles(seed, code, no, level = "hard") {
 const LINKS = {
   f1b: { gives: { up: 1 } },
   f1a: { gives: { key: "a", name: "보건실 열쇠" }, at: { 3: 2 } },              // 2층 보건실(온실 기체 짝짓기)          // 장부 ④는 2층
-  f2a: { gives: { up: 1 } },
+  f2a: { gives: { up: 1 }, spot: { 0: "Y", 1: "Y" } },                          // 온도계 A·B는 라운지 위쪽 벽(Y)에 걸려 있음
   f2b: { gives: { key: "b", name: "평가실 열쇠" }, at: { 2: 3 } },              // 세 번째 기호 카드는 3층
-  f4a: { gives: { key: "c", name: "3교무실 열쇠" } },                           // 2층 2교무실 → 3층 3교무실
+  f4a: { gives: { key: "c", name: "3교무실 열쇠" }, at: { 0: 1, 1: 3, 2: 1, 3: 3, 4: 3 } }, // 2층 2교무실 → 3층 3교무실. 순서 수첩·잡담은 1·3층에
   f3a: {},
   f3b: { gives: { flash: 1, name: "손전등" } },                                 // 1층 조소 2실(어두운 미로)에 필요
   f3c: {},
   f4b: { at: { 2: 2 } },                                                       // 표본병 하나는 2층
   f4c: { at: { 2: 1, 3: 1 } },                                                 // 함정 카드 2장은 1층
-  r1: { at: { 0: 2, 1: 2, 2: 3, 3: 3 } },                                      // 깨진 설명판 조각(IPCC 표)은 2·3층에서 가져와야 함
+  r1: { at: { 0: 2, 1: 2, 2: 3, 3: 3 } },
+  r2: { at: { 0: 3, 2: 2 } },                                                  // 출석부 쪽지는 3층, 연도 쪽지는 2층                                      // 깨진 설명판 조각(IPCC 표)은 2·3층에서 가져와야 함
 };
 
 export const ROLL = SYMBOLS.map((s, i) => `${i + 1} ${s}`).join(" · "); // 보충쌤 출석부
@@ -179,9 +196,23 @@ export function clueSpots(seed, code, floors, f, map) {
   const nearFloor = (x, y) => [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => map[y + dy]?.[x + dx] === ".");
   let pool = map.flatMap((row, y) => [...row].flatMap((c, x) => "DBPE".includes(c) && nearFloor(x, y) && far(x, y) ? [[x, y]] : [])); // 책상·칠판·컴퓨터·이젤
   if (!pool.length) pool = map.flatMap((row, y) => [...row].flatMap((c, x) => c === "." && far(x, y) ? [[x, y]] : []));
-  const tiles = shuffle(pool, r);
-  return all.flatMap(([ff, pz], p) => pz.clues.map((t, j) => ({ key: `${pz.id}-${j}`, pz: pz.title, t, p, j, f: pz.at?.[j] ?? ff })))
-    .filter(c => c.f === f).map((c, i) => ({ ...c, x: tiles[i % tiles.length][0], y: tiles[i % tiles.length][1] }));
+  const tiles = shuffle(pool, r), mine = all.flatMap(([ff, pz], p) => pz.clues.map((t, j) => ({ key: `${pz.id}-${j}`, pz: pz.title, t, p, j, f: pz.at?.[j] ?? ff })))
+    .filter(c => c.f === f), picked = [];
+  const fixed = new Map(); // spot: 정해진 칸(예: 벽 온도계 Y)에 놓을 단서 → 그 글자의 k번째 칸
+  for (const c of mine) { const ch = floors.flat().find(pz => pz.title === c.pz)?.spot?.[c.j]; if (!ch) continue;
+    const at = map.flatMap((row, y) => [...row].flatMap((cc, x) => cc === ch ? [[x, y]] : []))[[...fixed.values()].filter(v => v.ch === ch).length];
+    if (at) fixed.set(c.key, { ch, at }); }
+  const free = mine.filter(c => !fixed.has(c.key));
+  for (let i = 0; i < free.length && tiles.length; i++) { // 앞쪽 40칸 후보 중 이미 고른 칸에서 가장 먼 칸
+    let best = 0, bd = -1;
+    for (let k = 0; k < Math.min(40, tiles.length); k++) {
+      const d = Math.min(99, ...picked.map(([x, y]) => Math.abs(x - tiles[k][0]) + Math.abs(y - tiles[k][1])));
+      if (d > bd) { bd = d; best = k; }
+    }
+    picked.push(tiles.splice(best, 1)[0]);
+  }
+  return [...mine.filter(c => fixed.has(c.key)).map(c => ({ ...c, x: fixed.get(c.key).at[0], y: fixed.get(c.key).at[1] })),
+    ...free.map((c, i) => ({ ...c, x: picked[i % picked.length][0], y: picked[i % picked.length][1] }))];
 }
 // 책상 미니게임: 책상(D) 위 단서 8개 중 1개꼴로(쉬움에는 없음), 그 단서는 미니게임을 풀어야 나옴. salt(반 씨앗값+팀 코드)·단서 키로 정해져 팀원 기기가 모두 같음
 export const MINI_KINDS = ["nonsense", "wire", "picture"];
@@ -201,7 +232,7 @@ export function scatter(map, center, n, taken = new Set(), allowCenter = true) {
     const p = q[i], d = step.get(p.x + "," + p.y);
     for (const [dx, dy] of D) {
       const n2 = { x: p.x + dx, y: p.y + dy }, c = map[n2.y]?.[n2.x], k = n2.x + "," + n2.y;
-      if (!c || step.has(k) || "#+GabcrjDBTLPEUFNO".includes(c)) continue;
+      if (!c || step.has(k) || "#+GabcrjDBTLPEUFNOAY".includes(c)) continue;
       step.set(k, d + 1); q.push(n2);
     }
   }
@@ -219,7 +250,7 @@ export function dropSpot(map, target, key, taken = new Set()) {
     const p = q.pop();
     for (const [dx, dy] of D) {
       const n = { x: p.x + dx, y: p.y + dy }, c = map[n.y]?.[n.x], k = n.x + "," + n.y;
-      if (!c || seen.has(k) || "#+GabcrjDBTLPEUFNO".includes(c) || dist(n) > 4) continue; // 문을 넘지 않음 → 복도만
+      if (!c || seen.has(k) || "#+GabcrjDBTLPEUFNOAY".includes(c) || dist(n) > 4) continue; // 문을 넘지 않음 → 복도만
       seen.set(k, n); q.push(n);
     }
   }

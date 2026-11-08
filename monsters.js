@@ -6,7 +6,7 @@ export const RETARGET_MS = 500;   // 노리는 학생 위치를 0.5초마다 갱
 export const DETECT = 6;          // 쫓던 학생을 놓친 순간 직선 6칸 안(벽 너머 O)의 학생을 알아챔
 export const PATROL_DETECT = 8;   // 순찰 중엔 걸어서 8칸 안(벽 너머 X). 이 범위를 바닥에 빨갛게 보여 줌
 export const PATROL_STEP_MS = 200; // 순찰할 때는 학생보다 느리게 걸음
-export const WARN_MS = 2000, CHASE_MS = 20000, REST_MS = 180000;
+export const WARN_MS = 2000, CHASE_MS = 20000, REST_MS = 120000; // 약 2분 20초마다 등장(예전 3분 20초)
 // 난이도 '쉬움': 약 5분마다(2+12+286초) 12초만 추격
 const TIMING = { easy: [12000, 286000] };
 const SAFE_DIST = 4;              // 시작점 주변은 들어가지 않음
@@ -33,7 +33,7 @@ const dist = (a, b) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
 // 괴물이 갈 수 있는 칸: 벽·사물함·계단·보충실·잠긴 문·조소실이 아닌 칸, 현관(S) 안전 구역 밖. 교실 문(+)과 퍼즐 칸은 다님
 export function monsterTile(map, x, y) {
   const c = map[y]?.[x], s = startOf(map);
-  return c !== undefined && !"#DHSjGabcrCKRYVWXBTLmzQPEUFNO".includes(c) && (!s || Math.abs(x - s[0]) + Math.abs(y - s[1]) > SAFE_DIST); // m·z·Q: 조소 1·2실(보충쌤 못 들어감)
+  return c !== undefined && !"#DHSjGabcrCKRYVWXBTLmzQPEUFNOA".includes(c) && (!s || Math.abs(x - s[0]) + Math.abs(y - s[1]) > SAFE_DIST); // m·z·Q: 조소 1·2실(보충쌤 못 들어감)
 }
 export const DOOR_WAIT_MS = 2000; // 문을 지나면 2초 뒤에 따라 들어옴
 export const SEEK_MS = 1500;      // 사물함 앞에서 "어디에 숨었을까~" 하고 기다리는 시간

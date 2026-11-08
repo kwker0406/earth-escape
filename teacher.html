@@ -209,7 +209,7 @@ function mapImage(f, S, dpr) {
   const MAP = MAPS[f], c = document.createElement("canvas"); c.width = MAP[0].length * S * dpr; c.height = MAP.length * S * dpr;
   const g = c.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0);
   MAP.forEach((row, y) => [...row].forEach((ch, x) => {
-    g.fillStyle = ch === "#" ? "#3a3150" : "+Gabcr".includes(ch) ? "#8a4b2a" : "CKRYVWX".includes(ch) ? "#2f6b4f" : ch === "H" ? "#7a5a3a" : ch === "j" ? "#4a2228" : ch === "," ? "#2c3440" : "DBTLPEUFNOQ".includes(ch) ? "#3e3646" : /\d/.test(ch) ? "#2b3a55" : "#211c2e";
+    g.fillStyle = "#Y".includes(ch) ? "#3a3150" : "+Gabcr".includes(ch) ? "#8a4b2a" : "CKRVWX".includes(ch) ? "#2f6b4f" : ch === "H" ? "#7a5a3a" : ch === "j" ? "#4a2228" : ch === "," ? "#2c3440" : "DBTLPEUFNOQA".includes(ch) ? "#3e3646" : /\d/.test(ch) ? "#2b3a55" : "#211c2e";
     g.fillRect(x * S, y * S, S, S);
   }));
   miniBg.set(k, c); return c;

@@ -1,8 +1,7 @@
 // 지도 도트 타일(32×32). 위에서 내려다보되 벽 앞면·책상 옆면·그림자를 그려 입체처럼 보이게 한다.
 // 그림 파일 없이 코드로 점을 찍고, 같은 모양은 한 번만 만들어 기억해 둔다.
-import { AREAS } from "./maps.js";
 const S = 32, cache = new Map();
-const WALL = "#", BOUND = "#+Gabcr", FURN = "DBTLHPEUFNO"; // P 컴퓨터 책상 E 이젤 U 좌대 F 전시 패널 N 침대 O 복사기
+const WALL = "#", BOUND = "#+Gabcr", FURN = "DBTLHPEUFNOA"; // P 컴퓨터 책상 E 이젤 U 좌대 F 전시 패널 N 침대 O 복사기 A 그림 더미
 const hash = (x, y) => (Math.imul(x, 73856093) ^ Math.imul(y, 19349663)) >>> 0;
 
 function art(key, paint) {
@@ -33,7 +32,7 @@ function kindsOf(map, f) {
         if (ch && !BOUND.includes(ch) && !seen[ny * W + nx]) { seen[ny * W + nx] = 1; q.push([nx, ny]); }
       }
     }
-    const furn = /[DBTLPEUFNO]/.test(has), k = has.includes("z") ? "maze" : has.includes("m") ? "room" : has.includes("j") ? "jail" : /[CKRVWXS]/.test(has) ? "hall" // 계단이 있는 구역 = 복도(벽 없이 이어진 갤러리 포함)
+    const furn = /[DBTLPEUFNOA]/.test(has), k = has.includes("z") ? "maze" : has.includes("m") ? "room" : has.includes("j") ? "jail" : /[CKRVWXS]/.test(has) ? "hall" // 계단이 있는 구역 = 복도(벽 없이 이어진 갤러리 포함)
       : has.includes(",") ? (furn ? "lock" : "roof") : furn ? "room" : "hall"; // z 조소 2실(어두운 흙바닥), m 조소 1실
     let fc = "l";
     if (boards.length) {
@@ -48,9 +47,7 @@ function kindsOf(map, f) {
 
 function floor(kind, v, sh) { // v: 무늬 변화(0~3), sh: 그림자(1 위쪽 벽·가구, 2 왼쪽 벽)
   return art(`F${kind}${v}${sh}`, (r) => {
-    if (kind === "gallery") { // 갤러리: 따뜻한 원목 마루(가로로 긴 판자)
-      for (let i = 0; i < 4; i++) { const h = hash(v * 9 + i, i * 5); r(0, i * 8, 32, 8, (h & 1) ? "#b98a5a" : "#c4966a"); r(0, i * 8 + 7, 32, 1, "#8e6640"); r((h >> 4) % 28 + 2, i * 8, 1, 7, "#8e6640"); }
-    } else if (kind === "hall") { // 복도: 베이지 리놀륨 바둑판
+    if (kind === "hall") { // 복도: 베이지 리놀륨 바둑판
       for (let i = 0; i < 4; i++) r((i & 1) * 16, (i >> 1) * 16, 16, 16, ((i & 1) ^ (i >> 1)) ? "#b4ad9f" : "#c2bbad");
       r(0, 15, 32, 1, "#9f988b"); r(15, 0, 1, 32, "#9f988b"); r(0, 31, 32, 1, "#9f988b"); r(31, 0, 1, 32, "#9f988b");
       for (let i = 0; i < 5; i++) { const h = hash(v * 7 + i, i * 3); r(h % 30 + 1, (h >> 8) % 30 + 1, 1, 1, "#a8a194"); }
@@ -230,19 +227,38 @@ function stairs(up, from, qx, qy) {
   });
 }
 
-const elevator = () => art("Y", (r) => {
-  r(0, 0, 32, 32, "#5c6470"); r(2, 4, 28, 28, "#a8b1bb"); r(15, 4, 2, 28, "#5c6470");
-  r(2, 4, 28, 1, "#d0d7de"); r(13, 1, 6, 2, "#ffcc4a");           // 층 표시등
-  r(26, 14, 2, 4, "#e05050");
+// 벽에 걸린 온도계(아르떼라운지). v 0: 대기 없는 지구(−18 ℃, 파랑, 낮음) 1: 대기 있는 지구(15 ℃, 빨강, 높음)
+const thermo = v => art("Y" + v, (r) => {
+  r(9, 2, 14, 27, "#f4efe4"); r(9, 2, 14, 1, "#ffffff"); r(9, 28, 14, 1, "#b9b1a2");          // 나무 판
+  r(14, 4, 4, 19, "#dfe8ef"); r(13, 21, 6, 6, "#dfe8ef");                                      // 유리관·구
+  const liq = v ? "#d8433a" : "#3a7bd5", top = v ? 9 : 17;
+  r(15, top, 2, 22 - top, liq); r(14, 22, 4, 4, liq);
+  for (let y = 5; y < 22; y += 3) r(19, y, 2, 1, "#5a5248");                                   // 눈금
+  r(10, 4, 3, 2, v ? "#d8433a" : "#3a7bd5");                                                   // 색 표시(A 파랑·B 빨강)
 });
 
-// 조각상(조소 1실): 받침대 위 하얀 석고 흉상. 밀 수 있다는 걸 알 수 있게 받침대 옆면을 진하게
+// 조각상(조소 1실): 받침대 위 석고 두상(곱슬머리·이마·눈두덩·코·귀). 빛은 왼쪽 위 → 오른쪽 면이 그늘. 밀 수 있게 받침대 옆면을 진하게
 export const statue = () => art("Q", (r) => {
-  r(6, 27, 21, 3, "rgba(0,0,0,0.3)");                                        // 그림자
-  r(7, 19, 18, 9, "#8a8378"); r(7, 19, 18, 2, "#b3ab9f"); r(7, 26, 18, 2, "#5e584f"); // 받침대
-  r(10, 14, 12, 6, "#e9e4da"); r(10, 14, 12, 1, "#ffffff");                  // 어깨
-  r(12, 4, 8, 10, "#f1ede4"); r(12, 4, 8, 1, "#ffffff"); r(19, 5, 1, 9, "#c9c2b5"); // 머리
-  r(13, 8, 2, 1, "#9a9284"); r(17, 8, 2, 1, "#9a9284"); r(15, 11, 2, 1, "#b0a899"); // 눈·입
+  const W = "#f3efe6", L = "#ffffff", M = "#d9d2c4", Dk = "#b3aa99", X = "#8f8676";
+  r(6, 28, 21, 3, "rgba(0,0,0,0.3)");                                                        // 그림자
+  r(8, 23, 16, 6, "#8a8378"); r(8, 23, 16, 1, "#b3ab9f"); r(8, 27, 16, 2, "#5e584f");        // 받침대
+  r(10, 21, 12, 2, M); r(13, 18, 6, 4, W); r(17, 18, 2, 4, Dk);                              // 목 받침·목
+  r(10, 7, 12, 12, W); r(9, 9, 1, 8, W); r(22, 9, 1, 8, M); r(11, 19, 10, 1, W); r(13, 20, 6, 1, M); // 얼굴 윤곽(턱이 좁아짐)
+  r(19, 8, 3, 11, M); r(21, 10, 1, 7, Dk);                                                   // 오른쪽 그늘
+  r(8, 11, 2, 4, M); r(22, 11, 2, 4, Dk); // 귀
+  for (const [x, y] of [[10, 3], [13, 2], [16, 2], [19, 3], [9, 5], [21, 5], [12, 4], [17, 4]]) { r(x, y, 3, 3, W); r(x, y, 1, 1, L); r(x + 2, y + 2, 1, 1, Dk); } // 곱슬머리
+  r(9, 6, 14, 3, W); r(10, 6, 4, 1, L);                                                      // 머리 아랫단·이마 빛
+  r(11, 11, 3, 1, Dk); r(18, 11, 3, 1, X); r(12, 12, 2, 1, M); r(18, 12, 2, 1, Dk);          // 눈두덩·눈
+  r(15, 11, 2, 5, L); r(16, 14, 2, 2, Dk);                                                   // 콧등·콧망울 그늘
+  r(14, 17, 4, 1, Dk); r(14, 16, 4, 1, M);                                                   // 입술
+});
+// 작품 보관실: 아무렇게나 기대 세우고 쌓아 둔 캔버스·액자(v로 모양을 바꿈)
+const pile = v => art("A" + v, (r) => {
+  r(3, 27, 27, 3, "rgba(0,0,0,0.28)");
+  const cv = [["#f4efe4", "#c95a4a"], ["#e9dcc0", "#4a7ac9"], ["#f0e6d6", "#5a8a4a"], ["#d9b04a", "#2c4a6e"]];
+  const at = [[[3, 10, 14, 17], [12, 6, 16, 21], [7, 15, 18, 13]], [[4, 4, 12, 24], [14, 9, 15, 19], [9, 18, 20, 10]], [[6, 8, 20, 12], [3, 16, 13, 12], [15, 14, 14, 14]]][v % 3];
+  at.forEach(([x, y, w, h], i) => { const [bg, fg] = cv[(i + v) % 4];
+    r(x, y, w, h, "#5b4630"); r(x + 1, y + 1, w - 2, h - 2, bg); r(x + 3, y + 3, w - 6, Math.max(1, h - 6), fg); r(x + 1, y + 1, w - 2, 1, "#ffffff"); });
 });
 // ── 새 가구 ──
 const monitor = () => art("PM", (r) => { // 컴퓨터 책상 위: 모니터 + 키보드(책상 그림 위에 겹쳐 그림)
@@ -289,21 +305,22 @@ const FURN_M = (map, x, y, set) => [[0, -1, 1], [1, 0, 2], [0, 1, 4], [-1, 0, 8]
 // 한 칸 그리기: 바닥 → 그 위의 물건(가구·계단·문) 순서
 export function drawTile(ctx, map, f, x, y, px, py, T) {
   const c = map[y][x], K = kindsOf(map, f), k = K.k[y * map[0].length + x], put = cv => ctx.drawImage(cv, px, py, T + 1, T + 1);
-  if (c === WALL) {
-    const below = map[y + 1]?.[x], edge = [[0, -1, 1], [1, 0, 2], [0, 1, 4], [-1, 0, 8]].reduce((m, [dx, dy, b]) => { const n = map[y + dy]?.[x + dx]; return n && n !== WALL ? m | b : m; }, 0);
-    return put(wall(below && below !== WALL && !BOUND.includes(below) ? 1 : 0, edge, f === 0 ? 1 : 0)); // 아래가 문이면(세로 벽의 문) 앞면 없음
+  if (c === WALL || c === "Y") { // Y = 벽에 걸린 온도계
+    const isW = n => n === WALL || n === "Y", below = map[y + 1]?.[x], edge = [[0, -1, 1], [1, 0, 2], [0, 1, 4], [-1, 0, 8]].reduce((m, [dx, dy, b]) => { const n = map[y + dy]?.[x + dx]; return n && !isW(n) ? m | b : m; }, 0);
+    put(wall(below && !isW(below) && !BOUND.includes(below) ? 1 : 0, edge, f === 0 ? 1 : 0)); // 아래가 문이면(세로 벽의 문) 앞면 없음
+    if (c === "Y") put(thermo((x >> 3) & 1)); // 라운지 왼쪽(x 66) 온도계 A, 오른쪽(x 76) 온도계 B
+    return;
   }
   if (BOUND.includes(c)) return put(door(map[y][x - 1] !== WALL && map[y][x + 1] !== WALL ? 1 : 0, c));
-  if (c === "Y") return put(elevator());
   const up = map[y - 1]?.[x], left = map[y]?.[x - 1];
   const sh = (up === WALL || FURN.includes(up ?? "") ? 1 : 0) | (left === WALL ? 2 : 0);
-  const gal = AREAS[f]?.some(a => x >= a.x0 && x <= a.x1 && y >= a.y0 && y <= a.y1);  // 예원갤러리 바닥
-  put(floor(gal ? "gallery" : k, hash(x, y) & 3, FURN.includes(c) || "CKRVWX".includes(c) ? 0 : sh));
+  put(floor(k, hash(x, y) & 3, FURN.includes(c) || "CKRVWX".includes(c) ? 0 : sh));
   if (c === "D") { const dm = FURN_M(map, x, y, "D"); put(dm ? desk(dm, 0) : seat(K.face[y * map[0].length + x])); } // 1칸 책상은 의자와 함께
   else if (c === "P") { put(desk(FURN_M(map, x, y, "P"), 0)); put(monitor()); }        // 컴퓨터 책상(붙은 책상은 한 판으로)
   else if (c === "E") put(easel());
   else if (c === "U") put(plinth());
   else if (c === "F") put(panel());
+  else if (c === "A") put(pile(hash(x, y) % 3));
   else if (c === "N") put(bed());
   else if (c === "O") put(copier());
   else if (c === "T" || (/\d/.test(c) && FURN_M(map, x, y, "T"))) put(desk(FURN_M(map, x, y, "T0123456789"), 1)); // 교탁 위 퍼즐 칸도 교탁으로
