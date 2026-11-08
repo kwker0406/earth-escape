@@ -330,6 +330,19 @@ let spots = [], spotsF = -1;
 const allSpots = () => { if (PZ && spotsF !== me.f) { spots = clueSpots(meta.seed, me.code, PZ.floors, me.f, MAP); spotsF = me.f; } return PZ ? spots : []; };
 const onlineIds = () => [...new Set([me.uid, ...Object.keys(mates).filter(id => mates[id].online)])];
 const picked = c => got[c.key] && (got[c.key] === me.uid || mates[got[c.key]]?.online); // 나간 팀원이 주운 단서는 다시 바닥으로
+// 팀원별·층별 남은 별 수(가방에 표시). 잠긴 방(바닥 ,) 안 단서는 세지 않음
+const floorSpots = new Map();
+function starsLeft() {
+  const ids = onlineIds(), out = Object.fromEntries(ids.map(id => [id, {}]));
+  for (const f of [1, 2, 3]) {
+    if (!floorSpots.has(f)) floorSpots.set(f, clueSpots(meta.seed, me.code, PZ.floors, f, MAPS[f]));
+    for (const c of floorSpots.get(f)) {
+      if (picked(c) || D4.some(([dx, dy]) => MAPS[f][c.y + dy]?.[c.x + dx] === ",")) continue;
+      const o = clueOwner(c, ids); out[o][f] = (out[o][f] ?? 0) + 1;
+    }
+  }
+  return out;
+}
 const mySparkles = () => { const ids = onlineIds(); return allSpots().filter(c => !picked(c) && clueOwner(c, ids) === me.uid); };
 const myBag = () => PZ ? PZ.floors.flatMap((_, f) => clueSpots(meta.seed, me.code, PZ.floors, f, MAPS[f])).filter(c => got[c.key] === me.uid) : []; // 다른 층에서 주운 것도
 function onProgress(p) {
@@ -665,6 +678,9 @@ function renderBag() {
     ...(mine().length ? mine().map(id => el("div", { className: "card" }, ITEM[id], el("br"),
       el("button", { className: "drop", textContent: "⬇ 여기에 내려놓기", onclick: () => { dropAt(id, me.f, me.x, me.y); toast(`${ITEM[id]}을(를) 내려놓았다`, 2000); closeModal(); } })))
       : [el("p", { className: "sub", textContent: "가진 물건이 없어요. 친구에게 주려면 바닥에 내려놓으세요." })]),
+    ...(PZ ? (() => { const left = starsLeft(); return [el("h3", { textContent: "⭐ 팀원별 남은 별 (층별)" }),
+      ...Object.entries(left).map(([id, n]) => el("div", { className: "card", textContent: `${id === me.uid ? me.nick + " (나)" : mates[id]?.nick ?? "?"} — ${[1, 2, 3].map(f => `${f}층 ${n[f] ?? 0}`).join(" · ")}` })),
+      el("p", { className: "sub", textContent: "열쇠로 잠긴 방 안의 단서는 세지 않아요." })]; })() : []),
     el("h3", { textContent: "📜 내 단서 (퍼즐별)" }),
     el("p", { className: "sub", textContent: `반짝이는 별 옆에서 🔍 조사를 누르면 주워요. 팀원마다 별이 달라요 — 말로 알려 주세요! 아직 못 주운 내 단서 ${left}개` }),
     ...(groups.length ? [...open, ...closed].map(card) : [el("p", { className: "sub", textContent: "아직 주운 단서가 없어요." })]),
