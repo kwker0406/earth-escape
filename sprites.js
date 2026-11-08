@@ -250,7 +250,7 @@ export function sprite(kind, dir = "d", frame = 0) {
   const ch = CHARS[kind];
   if (ch?.png) { // PixelLab 그림: 파일이 늦게 오므로 받는 즉시 같은 캔버스에 그림(걸을 때는 2px 위로)
     const img = new Image();
-    img.onload = () => { ctx.drawImage(img, 0, frame ? 6 : 8); ctx.globalCompositeOperation = "destination-over"; painter(ctx).oval(64, 121, 22, 3, SHADOW); };
+    img.onload = () => { ctx.drawImage(img, 0, frame ? -2 : 0); ctx.globalCompositeOperation = "destination-over"; painter(ctx).oval(64, 121, 22, 3, SHADOW); };
     img.src = new URL(`./chars/${ch.png}_${{ d: "south", u: "north", r: "east", l: "west" }[dir]}.png`, import.meta.url).href;
     cache.set(key, cv); return cv;
   }
