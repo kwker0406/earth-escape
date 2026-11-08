@@ -33,7 +33,7 @@ const dist = (a, b) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
 // 괴물이 갈 수 있는 칸: 벽·사물함·계단·보충실·잠긴 문·조소실이 아닌 칸, 현관(S) 안전 구역 밖. 교실 문(+)과 퍼즐 칸은 다님
 export function monsterTile(map, x, y) {
   const c = map[y]?.[x], s = startOf(map);
-  return c !== undefined && !"#DHSjGabcrCKRYVWXBTLmzQPEUFNOA".includes(c) && (!s || Math.abs(x - s[0]) + Math.abs(y - s[1]) > SAFE_DIST); // m·z·Q: 조소 1·2실(보충쌤 못 들어감)
+  return c !== undefined && !"#DHSjGabcrCKRYVWXBTLmzwQPEUFNOA".includes(c) && (!s || Math.abs(x - s[0]) + Math.abs(y - s[1]) > SAFE_DIST); // m·z·Q: 조소 1·2실(보충쌤 못 들어감)
 }
 export const DOOR_WAIT_MS = 2000; // 문을 지나면 2초 뒤에 따라 들어옴
 export const SEEK_MS = 1500;      // 사물함 앞에서 "어디에 숨었을까~" 하고 기다리는 시간
@@ -74,11 +74,11 @@ export function sightTiles(map, m, r = PATROL_DETECT) {
 }
 
 // 괴물 m에서 표적 target 쪽으로 한 칸(최단 경로). 길이 없으면 제자리
-export function stepToward(map, m, target) {
+export function stepToward(map, m, target, tile = monsterTile) {
   if (!target || (m.x === target.x && m.y === target.y)) return { x: m.x, y: m.y };
   const key = (x, y) => y * 1000 + x, prev = new Map([[key(target.x, target.y), null]]);
   const q = [[target.x, target.y]]; // 표적에서 거꾸로 퍼져 나가 괴물에 닿으면 그 직전 칸이 다음 걸음
-  const ok = (x, y) => monsterTile(map, x, y) || (x === target.x && y === target.y);
+  const ok = (x, y) => tile(map, x, y) || (x === target.x && y === target.y);
   while (q.length) {
     const [x, y] = q.shift();
     for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
@@ -113,8 +113,8 @@ export function nextTarget(map, m, players, cur, now) {
 
 // 순찰: 지금 방향(h: 0~3)으로 걷다가, 갈림길에서는 가끔 방향을 바꾸고, 막히면 되돌아간다. 시작점 안전 구역에는 들어가지 않음
 const DIR4 = [[1, 0], [0, 1], [-1, 0], [0, -1]];
-export function patrolStep(map, m, h, random = Math.random) {
-  const open = DIR4.map(([dx, dy], i) => monsterTile(map, m.x + dx, m.y + dy) ? i : -1).filter(i => i >= 0);
+export function patrolStep(map, m, h, random = Math.random, tile = monsterTile) {
+  const open = DIR4.map(([dx, dy], i) => tile(map, m.x + dx, m.y + dy) ? i : -1).filter(i => i >= 0);
   if (!open.length) return { x: m.x, y: m.y, h };
   const back = (h + 2) % 4, side = open.filter(i => i !== h && i !== back);
   let nh = open.includes(h) && !(side.length && random() < 0.35) ? h // 대체로 직진, 갈림길에서 35% 확률로 꺾음
@@ -144,3 +144,38 @@ export function seekStep(map, mon, tp, step, t) {
 }
 // 문(+)으로 들어선 걸음이면 2초 동안 멈춤(그동안 안 보임) → 멈춤이 끝나는 시각, 아니면 0
 export const doorWait = (map, from, to, t) => (from.x !== to.x || from.y !== to.y) && map[to.y]?.[to.x] === "+" ? t + DOOR_WAIT_MS : 0;
+
+// ── 조소 2실에 늘 있는 보충쌤(보통·어려움) ──
+// 미로 바닥(z)만 다니고, 학생 걸음의 80% 속도. 걸어서 2칸 안에 들어온 학생만 알아채고, 쫓다가 걸어서 5칸 이상 벌어지면 놓치고 순찰로.
+// 목표(경고판 퍼즐 칸) 둘레 걸어서 4칸 안에는 못 들어감 → 거기까지 가면 안전
+export const MAZE_STEP_MS = Math.round(PLAYER_STEP_MS / 0.8), MAZE_SEE = 2, MAZE_LOSE = 5, MAZE_GUARD = 4;
+const mazeMemo = new WeakMap();
+const walkMap = (map, src, pass) => { // src에서 pass 칸으로만 걸을 때 걸음 수: Map("x,y" → n)
+  const d = new Map([[`${src.x},${src.y}`, 0]]), q = [[src.x, src.y]];
+  for (const [x, y] of q) for (const [dx, dy] of DIR4) { const nx = x + dx, ny = y + dy, k = `${nx},${ny}`;
+    if (!d.has(k) && pass(nx, ny)) { d.set(k, d.get(`${x},${y}`) + 1); q.push([nx, ny]); } }
+  return d;
+};
+export function mazeOf(map) { // { goal, guard: 못 들어가는 칸들, home: 처음 나타나는 칸 } (미로가 없는 층은 null)
+  if (mazeMemo.has(map)) return mazeMemo.get(map);
+  let goal = null;
+  map.forEach((row, y) => [...row].forEach((c, x) => { if (/\d/.test(c) && DIR4.some(([dx, dy]) => map[y + dy]?.[x + dx] === "z")) goal = { x, y }; }));
+  let v = null;
+  if (goal) {
+    const guard = new Set([...walkMap(map, goal, (x, y) => map[y]?.[x] === "z")].filter(([, n]) => n <= MAZE_GUARD).map(([k]) => k));
+    const cells = []; map.forEach((row, y) => [...row].forEach((c, x) => { if (c === "z" && !guard.has(`${x},${y}`)) cells.push({ x, y }); }));
+    const far = walkMap(map, goal, (x, y) => map[y]?.[x] === "z"); cells.sort((a, b) => far.get(`${a.x},${a.y}`) - far.get(`${b.x},${b.y}`));
+    v = { goal, guard, home: cells[Math.floor(cells.length / 2)] }; // 목표와 입구 사이 중간쯤
+  }
+  mazeMemo.set(map, v); return v;
+}
+export const mazeTile = (map, x, y) => map[y]?.[x] === "z" && !mazeOf(map)?.guard.has(`${x},${y}`);
+// 한 걸음: players = [{ id, x, y, jail }], m = { x, y, h, tid }. 반환 { x, y, h, tid }
+export function mazeStep(map, m, players, random = Math.random) {
+  const near = walkMap(map, m, (x, y) => map[y]?.[x] === "z"), d = p => near.get(`${p.x},${p.y}`) ?? 99;
+  const ok = p => !p.jail && mazeTile(map, p.x, p.y);
+  let t = m.tid && players.find(p => p.id === m.tid && ok(p) && d(p) < MAZE_LOSE);
+  if (!t) t = players.filter(p => ok(p) && d(p) <= MAZE_SEE).sort((a, b) => d(a) - d(b))[0];
+  if (!t) return { ...patrolStep(map, m, m.h ?? 0, random, mazeTile), tid: null };
+  return { ...stepToward(map, m, t, mazeTile), h: m.h ?? 0, tid: t.id };
+}

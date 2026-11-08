@@ -237,7 +237,7 @@ export function scatter(map, center, n, taken = new Set(), allowCenter = true) {
     const p = q[i], d = step.get(p.x + "," + p.y);
     for (const [dx, dy] of D) {
       const n2 = { x: p.x + dx, y: p.y + dy }, c = map[n2.y]?.[n2.x], k = n2.x + "," + n2.y;
-      if (!c || step.has(k) || "#+GabcrjDBTLPEUFNOAY".includes(c)) continue;
+      if (!c || step.has(k) || "#+GabcrjDBTLPEUFNOAYw".includes(c)) continue;
       step.set(k, d + 1); q.push(n2);
     }
   }
@@ -255,7 +255,7 @@ export function dropSpot(map, target, key, taken = new Set()) {
     const p = q.pop();
     for (const [dx, dy] of D) {
       const n = { x: p.x + dx, y: p.y + dy }, c = map[n.y]?.[n.x], k = n.x + "," + n.y;
-      if (!c || seen.has(k) || "#+GabcrjDBTLPEUFNOAY".includes(c) || dist(n) > 4) continue; // 문을 넘지 않음 → 복도만
+      if (!c || seen.has(k) || "#+GabcrjDBTLPEUFNOAYw".includes(c) || dist(n) > 4) continue; // 문을 넘지 않음 → 복도만
       seen.set(k, n); q.push(n);
     }
   }

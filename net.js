@@ -106,6 +106,8 @@ export function onTeam(cb) {
 // 괴물 상태 { n: 몇 번째 등장, x, y } — 방장 기기가 올리고 팀원 모두 받는다
 export const setMonster = m => set(R(`sessions/${sid}/teams/${team}/monster`), m).catch(() => {});
 export const onMonster = cb => onValue(R(`sessions/${sid}/teams/${team}/monster`), s => cb(s.val()), () => {});
+export const setMonster2 = m => set(R(`sessions/${sid}/teams/${team}/monster2`), m).catch(() => {}); // 조소 2실 상주 보충쌤
+export const onMonster2 = cb => onValue(R(`sessions/${sid}/teams/${team}/monster2`), s => cb(s.val()), () => {});
 
 // 게임 상태: { state: "wait"|"play"|"pause"|"end", endsAt, remain }
 export const onMeta = cb => onValue(R(`sessions/${sid}/meta`), s => cb(s.val() || { state: "end", remain: 0 }));
