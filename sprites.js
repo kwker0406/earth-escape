@@ -9,7 +9,7 @@ export const CHARS = [
   { name: "더벅머리 안경", emoji: "🤓", girl: 0, hair: "shaggy", color: "black", glasses: 1 },
   { name: "파마머리", emoji: "👨‍🦱", girl: 0, hair: "perm", color: "black" },
   { name: "스포츠머리", emoji: "👦", girl: 0, hair: "buzz", color: "black", png: "buzz" },
-  { name: "금발 댄디컷", emoji: "👱‍♂️", girl: 0, hair: "dandy", color: "blond" },
+  { name: "금발 댄디컷", emoji: "👱‍♂️", girl: 0, hair: "dandy", color: "blond", png: "dandy" },
 ];
 const SHADOW = "rgba(0,0,0,0.28)";
 const cache = new Map();
