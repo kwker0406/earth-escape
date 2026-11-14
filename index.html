@@ -203,7 +203,7 @@ import { phaseAt, spawnTile, stepToward, nextTarget, patrolStep, sightTiles, hos
   HIDE_WARN_MS, HIDE_MAX_MS, HIDE_COOLDOWN_MS, PLAYER_STEP_MS, CHASE_MS, SEEK_DIST, seekStep, doorWait, LOOK_MS } from "./monsters.js";
 import { JAIL_QUESTIONS } from "./questions.js";
 import { CHARS, sprite } from "./sprites.js";
-import { drawTile, statue } from "./tiles.js";
+import { drawTile, statue, onArt } from "./tiles.js";
 import { startIntro, playStory, introDone, resetIntro } from "./intro.js";
 import { initAudio, setMode, toggleMute, isMuted } from "./audio.js";
 import { buildPuzzles, check, clueSpots, clueOwner, dropSpot, scatter, miniGameOf, FLOOR_NAMES, MONSTER_FLOORS, ROLL } from "./puzzles.js";
@@ -1005,22 +1005,33 @@ function seer() { // (x, y)가 지금 보이는지
   see.sig = [...mine].join(); return see; // sig: 보이는 구역이 바뀌었는지 알아보는 표시
 }
 const bg = { key: "", cv: document.createElement("canvas") };
+const NIGHT = "#6672b0"; // 밤 색조(지도에 곱함): 붉은 기를 가장 많이, 푸른 기를 가장 적게 줄임
+onArt(() => { bg.key = ""; drawKey = ""; }); // 갤러리 그림을 불러오면 액자를 다시 그림
 function paintBg(cx, cy, see, dpr) {
   const W = MAP[0].length, H = MAP.length, cvb = bg.cv;
   const w = (VIEW_W + 2) * T * dpr, h = (VIEW_H + 2) * T * dpr;
   if (cvb.width !== w || cvb.height !== h) { cvb.width = w; cvb.height = h; } else cvb.getContext("2d").clearRect(0, 0, w, h);
-  const ctx = cvb.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.imageSmoothingEnabled = false; const seenPz = [];
+  const ctx = cvb.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.imageSmoothingEnabled = false; const seenPz = [], icons = [], spots = [], unseen = [];
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
   for (let y = Math.floor(cy); y < Math.min(H, cy + VIEW_H + 1); y++)
     for (let x = Math.floor(cx); x < Math.min(W, cx + VIEW_W + 1); x++) {
-      if (!see(x, y)) continue;
       const c = MAP[y][x], px = Math.round((x - cx) * T), py = Math.round((y - cy) * T);
+      if (!see(x, y)) { unseen.push([px, py]); continue; }
       drawTile(ctx, MAP, me.f, x, y, px, py, T); // 도트 타일(tiles.js)
       if (/\d/.test(c) && floorPz()[+c - 1] && !floorPz()[+c - 1].off) seenPz.push(floorPz()[+c - 1].id);
       const icon = (LOCKS.includes(c) ? (progress.keys?.[c] ? "" : "🔒")
         : /\d/.test(c) && floorPz()[+c - 1] && !floorPz()[+c - 1].off ? (solved(floorPz()[+c - 1].id) ? "✅" : "🔍") : ""); // 난이도에서 뺀 퍼즐 칸은 표시 없음
-      if (icon) { ctx.font = `${T * 0.6}px sans-serif`; ctx.fillText(icon, px + T / 2, py + T / 2); }
+      if (icon) icons.push([icon, px + T / 2, py + T / 2]);
+      if ("FU".includes(c) && (AREAS[me.f] ?? []).some(a => x >= a.x0 && x <= a.x1 && y >= a.y0 && y <= a.y1)) spots.push([px + T / 2, py + T / 2]);
     }
+  // 한밤의 학교: 지도 전체를 푸르스름하게 가라앉히고(곱하기), 갤러리 작품에만 따뜻한 조명을 얹음
+  ctx.globalCompositeOperation = "multiply"; ctx.fillStyle = NIGHT; ctx.fillRect(0, 0, (Math.min(W, cx + VIEW_W + 1) - Math.floor(cx)) * T, (Math.min(H, cy + VIEW_H + 1) - Math.floor(cy)) * T); // 지도가 있는 곳까지만
+  ctx.globalCompositeOperation = "source-atop";                                         // 아래 조명은 그려진 칸에만
+  for (const [px, py] of unseen) ctx.clearRect(px, py, T, T);                    // 곱하기는 빈 곳도 칠하므로 안 보이는 칸은 다시 비움
+  for (const [x, y] of spots) { const gr = ctx.createRadialGradient(x, y, 0, x, y, T * 1.5);
+    gr.addColorStop(0, "rgba(255,206,140,0.34)"); gr.addColorStop(1, "rgba(255,206,140,0)"); ctx.fillStyle = gr; ctx.fillRect(x - T * 1.5, y - T * 1.5, T * 3, T * 3); }
+  ctx.globalCompositeOperation = "source-over";
+  ctx.font = `${T * 0.6}px sans-serif`; for (const [icon, x, y] of icons) ctx.fillText(icon, x, y);
   if (seenPz.length && playing()) markFound(seenPz);
   // 모이는 곳: 쓸 수 있는 계단·엘리베이터 1칸 안(바닥만). 올라가는 계단 연두, 내려가는 계단 하늘색, 엘리베이터 연보라
   for (let y = Math.floor(cy) - 1; y < Math.min(H, cy + VIEW_H + 2); y++)
@@ -1030,36 +1041,35 @@ function paintBg(cx, cy, see, dpr) {
         for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const c = MAP[y + dy]?.[x + dx];
           if (c && !"#".includes(c) && !STAIRS.includes(c) && see(x + dx, y + dy)) ctx.fillRect((x + dx - cx) * T, (y + dy - cy) * T, T, T); }
       }
-  // 교실 명패: 문 바로 옆 벽에서 복도 쪽으로 튀어나온 팻말(받침대·두께·바닥 그림자로 돌출을 표현)
+  // 교실 명패: 문틀 위 벽에 붙은 얇은 명패
   for (const r of ROOMS[me.f] ?? []) {
     const sg = signOf(r); if (!sg) continue;
-    const { tx, ty, dx, dy } = sg;
-    if (!see(tx + dx, ty + dy) || tx < cx - 3 || tx > cx + VIEW_W + 3 || ty < cy - 2 || ty > cy + VIEW_H + 2) continue;
-    drawSign(ctx, (tx - cx) * T + T / 2, (ty - cy) * T + T / 2, dx, dy, r.name);
+    const { tx, ty } = sg;
+    if (!see(tx, ty) || tx < cx - 3 || tx > cx + VIEW_W + 3 || ty < cy - 2 || ty > cy + VIEW_H + 2) continue;
+    drawSign(ctx, (tx - cx) * T + T / 2, (ty - cy) * T + T / 2, sg, r.name);
   }
 }
-// 팻말 자리: 문 옆 벽 칸(세로 벽 문이면 위쪽 벽, 가로 벽 문이면 오른쪽 벽)과 복도 쪽 방향
+// 명패 자리: 문틀 위. 가로 벽의 문이면 문 위 벽 윗면에 가로로, 세로 벽의 문이면 문 위쪽 벽 윗면에 세로로(글자를 한 자씩 내려 씀)
 const signMemo = new Map();
 function signOf(r) {
   const key = me.f + r.name; if (signMemo.has(key)) return signMemo.get(key);
-  const [x, y] = r.door, vertWall = MAP[y - 1]?.[x] === "#" && MAP[y + 1]?.[x] === "#"; // 문 위아래가 벽 = 세로 벽(좌우로 통함)
-  const id = regions(MAP), W = MAP[0].length, size = new Map(); for (const v of id) size.set(v, (size.get(v) ?? 0) + 1);
-  const sides = vertWall ? [[-1, 0], [1, 0]] : [[0, -1], [0, 1]];
-  const [dx, dy] = sides.sort((a, b) => (size.get(id[(y + b[1]) * W + x + b[0]]) ?? 0) - (size.get(id[(y + a[1]) * W + x + a[0]]) ?? 0))[0]; // 더 넓은 쪽 = 복도
-  const res = vertWall ? { tx: x, ty: y - 1, dx, dy } : { tx: x + 1, ty: y, dx, dy };
-  signMemo.set(key, MAP[res.ty]?.[res.tx] === "#" ? res : null); return signMemo.get(key);
+  const [x, y] = r.door, vert = MAP[y - 1]?.[x] === "#" && MAP[y + 1]?.[x] === "#"; // 문 위아래가 벽 = 세로 벽(좌우로 통함)
+  let run = 0; if (vert) while (run < 4 && MAP[y - 1 - run]?.[x] === "#") run++;        // 세로 명패를 걸 수 있는 벽 길이(칸)
+  const isDoor = "+Gabcr".includes(MAP[y]?.[x]);                                         // 문이 없는 입구(현관)는 옆 벽에 붙임
+  const res = isDoor ? { tx: x, ty: y, vert, run } : MAP[y]?.[x + 1] === "#" ? { tx: x + 1, ty: y, vert: false, run: 0, wall: 1 } : null;
+  signMemo.set(key, res); return res;
 }
-function drawSign(ctx, ax, ay, dx, dy, text) { // ax, ay: 벽 칸 가운데. dx, dy: 복도 쪽
-  ctx.font = `bold ${Math.max(9, T * 0.27)}px sans-serif`;
-  const w = ctx.measureText(text).width + T * 0.3, h = T * 0.42, lift = T * 0.3; // 천장 가까이 달려 있어 바닥보다 위로 그림
-  const px = ax + dx * T * 0.7, py = ay + dy * T * 0.7 - lift;
-  ctx.fillStyle = "rgba(0,0,0,0.25)"; ctx.fillRect(px - w / 2 + T * 0.12, py + lift + T * 0.12, w, h * 0.3); // 바닥에 진 그림자
-  ctx.strokeStyle = "#3a2a1a"; ctx.lineWidth = 3;                                  // 벽에서 나온 받침대
-  ctx.beginPath(); ctx.moveTo(ax + dx * T * 0.45, ay + dy * T * 0.45 - lift - h / 2); ctx.lineTo(px, py - h / 2); ctx.stroke();
-  ctx.fillStyle = "#5a3e22"; ctx.fillRect(px - w / 2, py - h / 2 + 3, w, h);      // 두께(아래로 살짝 보이는 옆면)
-  ctx.fillStyle = "#f3ead6"; ctx.fillRect(px - w / 2, py - h / 2, w, h);           // 앞판
-  ctx.strokeStyle = "#5a3e22"; ctx.lineWidth = 2; ctx.strokeRect(px - w / 2 + 1, py - h / 2 + 1, w - 2, h - 2);
-  ctx.fillStyle = "#2a1c10"; ctx.fillText(text, px, py + 1);
+function drawSign(ctx, ax, ay, sg, text) { // ax, ay: 문 칸 가운데. 벽 윗면에 붙은 얇은 아크릴 명패(밤이라 흰색을 낮춤)
+  const fs = Math.max(8, T * 0.25), n = [...text].length; ctx.font = `bold ${fs}px sans-serif`;
+  const plate = (x, y, w, h) => { ctx.fillStyle = "#141024"; ctx.fillRect(x - 1, y - 1, w + 2, h + 3);    // 테두리 + 아래 그림자
+    ctx.fillStyle = "#b9bccb"; ctx.fillRect(x, y, w, h); ctx.fillStyle = "#dfe1ea"; ctx.fillRect(x, y, w, 1); ctx.fillStyle = "#1b1730"; };
+  if (sg.vert && n * fs * 1.05 + 4 <= sg.run * T) { // 세로 벽: 문 바로 위 벽에 세로 명패
+    const w = fs + 6, h = n * fs * 1.05 + 4, x = ax - w / 2, y = ay - T / 2 - h - 2; plate(x, y, w, h);
+    [...text].forEach((ch, i) => ctx.fillText(ch, ax, y + 2 + fs * 1.05 * (i + 0.5)));
+  } else { // 가로 벽(또는 세로로 걸 자리가 모자람): 문틀 위에 가로 명패
+    const w = ctx.measureText(text).width + 8, h = fs + 5, y = sg.wall ? ay - T / 2 + 2 : ay - T / 2 - (sg.vert ? h + 2 : h * 0.35); plate(ax - w / 2, y, w, h);
+    ctx.fillText(text, ax, y + h / 2 + 0.5);
+  }
 }
 function draw() {
   const W = MAP[0].length, H = MAP.length, see = seer();
@@ -1111,6 +1121,8 @@ function draw() {
   const others = Object.entries(mates).filter(([id, m]) => id !== me.uid && m.online && sameFloor(m) && m.rx != null && see(m.x, m.y) && !inLocker(m));
   for (const [, m] of others) drawChar(m, m.avatar, m.nick + (m.jail ? " 🔒" : ""), cx, cy, false);
   if (!inLocker(me)) drawChar(me, me.avatar, me.nick, cx, cy, true);
+  { const px = (me.rx - cx) * T + T / 2, py = (me.ry - cy) * T + T / 2, gr = ctx.createRadialGradient(px, py, T * 2.5, px, py, T * 9); // 밤: 내게서 멀수록 어두움
+    gr.addColorStop(0, "rgba(4,6,20,0)"); gr.addColorStop(1, "rgba(4,6,20,0.55)"); ctx.fillStyle = gr; ctx.fillRect(0, 0, T * VIEW_W, T * VIEW_H); }
   if (darkRegions(MAP).size) { // 어둠(조소 2실): 내 바로 옆(1.5칸)과 손전등 빛(3칸)만 보임
     const lit = [{ x: me.rx, y: me.ry, r: 1.5 }, ...lights().map(l => ({ ...l, r: LIGHT_R + 0.5 }))];
     for (let y = Math.floor(cy); y < Math.min(H, cy + VIEW_H + 1); y++)

@@ -1,0 +1,7 @@
+<body style="margin:0;background:#000"><canvas id=c></canvas><script type=module>
+import { MAPS } from "./maps.js"; import { drawTile } from "./tiles.js";
+const q = new URLSearchParams(location.search), f = +q.get("f"), x0 = +q.get("x"), y0 = +q.get("y"), w = +q.get("w"), h = +q.get("h"), T = 40;
+c.width = w * T; c.height = h * T; const g = c.getContext("2d"); g.imageSmoothingEnabled = false;
+const draw = () => { for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) if (MAPS[f][y]?.[x]) drawTile(g, MAPS[f], f, x, y, (x - x0) * T, (y - y0) * T, T); }; draw();
+setTimeout(() => { draw(); window.done = 1; }, 1500); // 갤러리 그림을 불러온 뒤 한 번 더
+</script>
