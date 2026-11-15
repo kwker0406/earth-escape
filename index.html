@@ -1005,6 +1005,7 @@ function seer() { // (x, y)가 지금 보이는지
   see.sig = [...mine].join(); return see; // sig: 보이는 구역이 바뀌었는지 알아보는 표시
 }
 const bg = { key: "", cv: document.createElement("canvas") };
+const vig = { key: "", cv: document.createElement("canvas") }; // 밤 어둠 그림(화면 크기가 바뀔 때만 다시 그림)
 const NIGHT = "#6672b0"; // 밤 색조(지도에 곱함): 붉은 기를 가장 많이, 푸른 기를 가장 적게 줄임
 onArt(() => { bg.key = ""; drawKey = ""; }); // 갤러리 그림을 불러오면 액자를 다시 그림
 function paintBg(cx, cy, see, dpr) {
@@ -1121,8 +1122,15 @@ function draw() {
   const others = Object.entries(mates).filter(([id, m]) => id !== me.uid && m.online && sameFloor(m) && m.rx != null && see(m.x, m.y) && !inLocker(m));
   for (const [, m] of others) drawChar(m, m.avatar, m.nick + (m.jail ? " 🔒" : ""), cx, cy, false);
   if (!inLocker(me)) drawChar(me, me.avatar, me.nick, cx, cy, true);
-  { const px = (me.rx - cx) * T + T / 2, py = (me.ry - cy) * T + T / 2, gr = ctx.createRadialGradient(px, py, T * 2.5, px, py, T * 9); // 밤: 내게서 멀수록 어두움
-    gr.addColorStop(0, "rgba(4,6,20,0)"); gr.addColorStop(1, "rgba(4,6,20,0.55)"); ctx.fillStyle = gr; ctx.fillRect(0, 0, T * VIEW_W, T * VIEW_H); }
+  { // 밤: 내게서 멀수록 어두움. 미리 그려 둔 그림을 내 자리에 맞춰 얹음(매 장면 새로 계산하면 느린 폰에서 끊김)
+    const w = T * VIEW_W, h = T * VIEW_H;
+    if (vig.key !== `${w},${h}`) { vig.key = `${w},${h}`; vig.cv.width = w; vig.cv.height = h; const g = vig.cv.getContext("2d"), gr = g.createRadialGradient(w / 2, h / 2, T * 2.5, w / 2, h / 2, T * 9);
+      gr.addColorStop(0, "rgba(4,6,20,0)"); gr.addColorStop(1, "rgba(4,6,20,0.55)"); g.fillStyle = gr; g.fillRect(0, 0, w, h); }
+    const dx = Math.round((me.rx - cx) * T + T / 2 - w / 2), dy = Math.round((me.ry - cy) * T + T / 2 - h / 2);
+    ctx.drawImage(vig.cv, dx, dy);
+    if (dx || dy) { ctx.fillStyle = "rgba(4,6,20,0.55)";                                  // 지도 끝에서는 내가 가운데가 아님 → 그림이 못 덮는 띠를 같은 어둠으로 채움
+      if (dx > 0) ctx.fillRect(0, 0, dx, h); if (dx < 0) ctx.fillRect(w + dx, 0, -dx, h);
+      if (dy > 0) ctx.fillRect(Math.max(dx, 0), 0, w - Math.abs(dx), dy); if (dy < 0) ctx.fillRect(Math.max(dx, 0), h + dy, w - Math.abs(dx), -dy); } }
   if (darkRegions(MAP).size) { // 어둠(조소 2실): 내 바로 옆(1.5칸)과 손전등 빛(3칸)만 보임
     const lit = [{ x: me.rx, y: me.ry, r: 1.5 }, ...lights().map(l => ({ ...l, r: LIGHT_R + 0.5 }))];
     for (let y = Math.floor(cy); y < Math.min(H, cy + VIEW_H + 1); y++)
