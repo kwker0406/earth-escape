@@ -155,6 +155,60 @@
   .board p:nth-child(2) { transform:rotate(.5deg); text-decoration:underline; text-decoration-color:#ffffff66; text-underline-offset:5px; }
   .board p:nth-child(3) { transform:rotate(-.8deg) translateX(6px); }
   .board .clue { color:#ffe27a; font-size:27px; transform:rotate(.4deg); text-shadow: 0 0 1px #ffe27a99, 0 0 7px #ffe27a44; }
+  /* ── 단서: 진짜 물건처럼(쪽지·카드·스케치북 조각·깨진 설명판·인쇄 서류·이름표·엿들은 말). 손전등으로 비춰 본 낡은 종이 느낌 ── */
+  .modal { background: radial-gradient(130% 75% at 50% 16%, #2c2637f7 0, #120f1afb 58%, #06050afd 100%); }
+  .paper { position:relative; flex:none; margin:10px 6px 4px; padding:14px 14px 12px; color:#2a2218; word-break:keep-all; transform:rotate(var(--tilt, -.6deg));
+    font-family:"Gaegu","Chalkboard SE","Comic Sans MS",cursive; font-weight:700; font-size:21px; line-height:1.32;
+    background:radial-gradient(60px 40px at 82% 78%, #8a5a2a2e, transparent 70%), radial-gradient(90px 50px at 12% 10%, #7a5a2a22, transparent 70%), #e7dcc0;
+    box-shadow:0 6px 14px #000b, inset 0 0 30px #6a4a1a3d; }
+  .paper small { display:block; margin-bottom:4px; font:700 11px/1.2 system-ui, sans-serif; letter-spacing:.08em; color:#7a6a50; }
+  .paper.note { background:repeating-linear-gradient(transparent 0 27px, #6f8fb04d 27px 28px), radial-gradient(70px 44px at 80% 80%, #8a5a2a30, transparent 70%), #ebe1c4;
+    clip-path:polygon(0 0, 100% 0, 100% calc(100% - 6px), 94% 100%, 88% calc(100% - 5px), 80% 100%, 71% calc(100% - 6px), 62% 100%, 52% calc(100% - 4px), 43% 100%, 33% calc(100% - 6px), 24% 100%, 14% calc(100% - 5px), 6% 100%, 0 calc(100% - 4px)); padding-bottom:18px; }
+  .paper.note::before { content:""; position:absolute; top:-7px; left:50%; width:74px; height:18px; transform:translateX(-50%) rotate(-3deg); background:#e9d98a99; box-shadow:0 1px 2px #0005; } /* 붙였던 테이프 */
+  .paper.index { background:linear-gradient(transparent 0 30px, #c94a4a 30px 32px, transparent 32px), repeating-linear-gradient(transparent 0 27px, #5a86b033 27px 28px), #f1ecdd; border-radius:3px; padding-top:12px; }
+  .paper.index small { margin-bottom:12px; color:#8a3a3a; }
+  .paper.sketch { background:radial-gradient(circle at 9px 14px, #14111c 0 4px, transparent 5px) 0 0 / 100% 26px repeat-y, radial-gradient(80px 50px at 70% 30%, #5a5a5a1f, transparent 70%), #d6ccb6;
+    padding-left:28px; color:#3a3a42; clip-path:polygon(0 0, 97% 0, 100% 8%, 96% 20%, 100% 33%, 97% 47%, 100% 60%, 96% 74%, 100% 88%, 97% 100%, 0 100%); padding-right:22px; } /* 스프링 구멍 + 찢긴 오른쪽 */
+  .paper.plaque { background:linear-gradient(160deg, #565b66, #2b2e36 70%); color:#e8e3d4; font-family:"Nanum Myeongjo","AppleMyungjo",serif; font-size:17px; line-height:1.5; letter-spacing:.02em;
+    text-shadow:0 -1px 0 #000a, 0 1px 0 #ffffff22; box-shadow:0 6px 14px #000c, inset 0 0 0 2px #7d838f, inset 0 0 22px #000a;
+    clip-path:polygon(2% 0, 100% 0, 97% 26%, 100% 52%, 95% 78%, 99% 100%, 30% 100%, 22% 92%, 12% 100%, 0 96%, 3% 60%, 0 30%); }
+  .paper.plaque small { color:#b9b3a0; }
+  .paper.form { background:linear-gradient(#d8d2c0 0 24px, transparent 24px), repeating-linear-gradient(transparent 0 25px, #0000001a 25px 26px), #efeadd; font-family:"Nanum Myeongjo","AppleMyungjo",serif; font-size:17px; line-height:1.55; border-radius:2px; }
+  .paper.form small { color:#3a342a; margin-bottom:10px; }
+  .paper.form::after { content:"보충"; position:absolute; right:10px; bottom:8px; width:42px; height:42px; display:grid; place-items:center; border:3px solid #b3261acc; border-radius:50%; color:#b3261acc;
+    font:700 14px/1 serif; transform:rotate(-14deg); } /* 보충쌤 도장 */
+  .paper.label { align-self:flex-start; max-width:92%; background:#e3d39a; border:1px dashed #8a7a3a; font-family:"Courier New", ui-monospace, monospace; font-size:16px; line-height:1.45; box-shadow:0 4px 10px #000a; }
+  .paper.whisper { background:none; box-shadow:none; border-left:3px solid #6b5a8a; padding:6px 10px 6px 14px; color:#d6cdea; font-size:20px; text-shadow:0 0 8px #8f7ad066; transform:none; }
+  .paper.whisper small { color:#9a8fb8; }
+  /* 단서를 주운 순간: 화면 위쪽에 그 물건이 떨어지듯 나타났다가 사라짐(게임은 계속 진행. 누르면 바로 닫힘) */
+  #found { position:absolute; left:50%; top:calc(max(8px, env(safe-area-inset-top)) + 52px); transform:translateX(-50%); z-index:4; width:min(88%, 380px); display:none; flex-direction:column; }
+  #found.on { display:flex; animation:found .4s cubic-bezier(.2,1.4,.4,1); }
+  #found > b { align-self:center; padding:3px 10px; border-radius:10px; background:#000a; color:#ffe9a8; font-size:13px; }
+  @keyframes found { from { opacity:0; transform:translate(-50%, -24px) rotate(-4deg); } }
+  /* ── 퍼즐 창: 놋쇠 이름판, 손으로 적은 관찰 기록, 진짜 자물쇠·전자 도어록·레버처럼 ── */
+  #pz > h2 { align-self:flex-start; padding:8px 26px; border-radius:4px; color:#1d150a; font-size:19px;
+    background:radial-gradient(circle at 11px 50%, #3a2c14 0 3px, transparent 4px), radial-gradient(circle at calc(100% - 11px) 50%, #3a2c14 0 3px, transparent 4px), linear-gradient(#cfae6c, #8a6c36);
+    box-shadow:0 3px 8px #000a, inset 0 1px 0 #ffffff66, inset 0 -2px 0 #0004; text-shadow:0 1px 0 #ffffff55; }
+  #pz .ask { font-family:"Gaegu","Chalkboard SE",cursive; font-size:23px; line-height:1.35; color:#f1ead8; text-shadow:0 0 8px #ffffff22; word-break:keep-all; }
+  #pz .hint { font-family:"Gaegu","Chalkboard SE",cursive; font-size:21px; text-shadow:0 0 10px #ffd98a55; }
+  #pz .dials { position:relative; align-self:center; margin-top:54px; padding:18px 16px 16px; border-radius:16px; background:linear-gradient(150deg, #d2b06a, #94733a 55%, #6d5326);
+    box-shadow:0 8px 18px #000c, inset 0 2px 0 #ffffff55, inset 0 -4px 0 #0005; }
+  #pz .dials::before { content:""; position:absolute; left:50%; top:-50px; width:112px; height:52px; transform:translateX(-50%); border:13px solid #9aa0aa; border-bottom:0; border-radius:60px 60px 0 0;
+    box-shadow:inset 0 3px 0 #ffffff66, 0 -1px 0 #555; } /* 자물쇠 고리 */
+  #pz .dial { border-radius:6px; border:2px solid #3a2c14; background:linear-gradient(#0c0c0c, #3d3d3d 48%, #4a4a4a 52%, #0c0c0c); color:#f4e9c8; font-family:"Courier New", ui-monospace, monospace; box-shadow:inset 0 0 8px #000; }
+  #pz .wheel button { background:linear-gradient(#b99556, #7c6130); border-color:#3a2c14; color:#1d150a; box-shadow:inset 0 1px 0 #ffffff55; }
+  #pz .row2 { padding:12px; border-radius:12px; background:linear-gradient(#262a31, #15171c); border:2px solid #3b4048; box-shadow:0 6px 14px #000b, inset 0 1px 0 #ffffff1a; }
+  #pz .row2 .field { background:#08160d; border:2px solid #1f4a30; color:#7dffa0; font-family:"Courier New", ui-monospace, monospace; font-size:22px; letter-spacing:.2em; text-shadow:0 0 8px #3cff7a99; caret-color:#7dffa0; }
+  #pz .row2 .field::placeholder { color:#2f6a46; letter-spacing:.05em; }
+  #pz .go { background:linear-gradient(#d65a44, #8e2f22); border-bottom:4px solid #5a1c14; box-shadow:0 4px 10px #0009; } #pz .go:active { transform:translateY(2px); border-bottom-width:2px; }
+  #pz .opt { background:linear-gradient(#2b2735, #1b1823); border:1px solid #4a4458; border-left:6px solid #b8975a; font-family:"Gaegu","Chalkboard SE",cursive; font-weight:700; font-size:20px; line-height:1.3; box-shadow:0 3px 8px #0008; }
+  #pz .opt.sel { border-color:var(--hot); border-left-color:var(--hot); background:#3a2a2a; }
+  #pz .lever { background:linear-gradient(#22202b, #131119); border-color:#4a4458; }
+  #pz .lever .knob { position:relative; height:74px; width:26px; border-radius:13px; border:2px solid #5a556c; background:linear-gradient(90deg, #0d0b12, #3c3848 50%, #0d0b12); color:transparent; }
+  #pz .lever .knob::after { content:""; position:absolute; left:50%; width:34px; height:34px; margin-left:-17px; border-radius:50%; box-shadow:0 3px 6px #000a; transition:top .15s; }
+  #pz .lever.up .knob::after { top:-6px; background:radial-gradient(circle at 35% 30%, #ffe9a0, #d09a1a 60%, #7a5a0a); }
+  #pz .lever.down .knob::after { top:44px; background:radial-gradient(circle at 35% 30%, #a8d8ff, #2a7ac0 60%, #123a66); }
+  #pz .seqshow { font-family:"Courier New", ui-monospace, monospace; padding:8px; border-radius:8px; background:#08160d; border:2px solid #1f4a30; color:#7dffa0; text-shadow:0 0 8px #3cff7a99; }
   #end { background:#0f1a14f5; text-align:center; align-items:center; justify-content:center; }
 </style>
 </head>
@@ -176,7 +230,7 @@
 
 <section id="game" class="screen">
   <div id="hud"><span><b id="floorName"></b> · ⏱ <b id="timer">--:--</b></span><span><button id="snd" aria-label="소리 켜기·끄기">🔊</button> <button id="out">나가기</button></span></div>
-  <div id="mapbox"><canvas id="cv"></canvas><div id="alert" role="status" aria-live="polite"></div><div id="status" role="status"></div></div>
+  <div id="mapbox"><canvas id="cv"></canvas><div id="alert" role="status" aria-live="polite"></div><div id="found" role="status"></div><div id="status" role="status"></div></div>
   <div id="panel">
     <div id="pad" aria-label="방향키"><span class="u">▲</span><span class="l">◀</span><span class="r">▶</span><span class="d">▼</span></div>
     <div id="side">
@@ -263,7 +317,21 @@ const ERRORS = { NOCODE: "없는 방 코드예요. 선생님께 다시 확인하
 
 const save = () => net.move(me.x, me.y, me.d, me.jail, me.f, me.seen);
 const toast = (text, ms = 2500) => { toastText = text; toastUntil = net.serverNow() + ms; };
-const newClues = cs => cs.length && toast(`📜 새 단서! ${cs[0].t}${cs.length > 1 ? ` (외 ${cs.length - 1}장 · 🎒에서 확인)` : ""}`, 6000); // 처음 주운 단서 내용을 위에 잠깐 보여 줌
+// 단서를 진짜 물건처럼: 맨 앞 그림글자로 종류를 정함(쪽지·카드·크로키북 조각·깨진 설명판·인쇄 서류·이름표·엿들은 말). 글은 "이름: 내용"으로 나눠 이름을 작은 머리글로
+const PAPER = { "📝": "note", "🩺": "note", "🌐": "note", "🔖": "index", "🗂": "index", "🃏": "index", "✏": "sketch", "🗿": "plaque", "📋": "form", "📎": "form", "☁": "form", "🌡": "label", "🧪": "label", "💬": "whisper" };
+function clueEl(c) {
+  const t = c.t, icon = [...t][0], rest = t.slice(icon.length).replace(/^\uFE0F?\s*/, ""), cut = rest.indexOf(": ");
+  const h = [...c.key].reduce((a, ch) => a * 31 + ch.charCodeAt(0) | 0, 7), kind = PAPER[icon] ?? "note";
+  const e = el("div", { className: "paper " + kind }, el("small", { textContent: `${icon} ${cut > 0 ? rest.slice(0, cut) : "단서"}` }), cut > 0 ? rest.slice(cut + 2) : rest);
+  e.style.setProperty("--tilt", ((Math.abs(h) % 9) - 4) * 0.35 + "deg"); // 단서마다 조금씩 다르게 기울임
+  return e;
+}
+let foundTimer = 0;
+const hideFound = () => { clearTimeout(foundTimer); $("found").classList.remove("on"); };
+const newClues = cs => { if (!cs.length) return; // 주운 물건을 화면 위쪽에 잠깐 보여 줌(최대 2장). 누르면 닫힘. 게임은 멈추지 않음
+  const box = $("found"); box.replaceChildren(el("b", { textContent: `📜 단서를 찾았다!${cs.length > 2 ? ` (${cs.length}장 · 나머지는 🎒에서)` : " 🎒에 넣어 두었어요"}` }), ...cs.slice(0, 2).map(clueEl));
+  box.classList.remove("on"); void box.offsetWidth; box.classList.add("on"); box.onclick = hideFound;
+  clearTimeout(foundTimer); foundTimer = setTimeout(hideFound, 7000); };
 
 $("snd").textContent = isMuted() ? "🔇" : "🔊";
 $("snd").onclick = () => { $("snd").textContent = toggleMute() ? "🔇" : "🔊"; };
@@ -672,7 +740,7 @@ function renderBag() {
     const k = pz.id + (done ? ":done" : ""); // 풀기 전·후를 따로 기억 → 풀리는 순간 자동으로 접힘
     const d = el("details", { className: "pzc" + (done ? " done" : ""), open: bagOpen[k] ?? !done, ontoggle: e => { bagOpen[k] = e.target.open; } }, // 직접 펼치고 접은 건 다시 그려도 유지
       el("summary", {}, el("b", { textContent: `${done ? "✅" : "🔍"} ${pz.title}` }), el("span", { textContent: ` ${FLOOR_NAMES[f]} · 팀 단서 ${have}/${all}${done ? " · 해결!" : ""}` })),
-      ...mine.map(c => el("div", { className: "card", textContent: c.t })));
+      ...mine.map(clueEl));
     return d;
   };
   const open = groups.filter(g => !solved(g.pz.id)), closed = groups.filter(g => solved(g.pz.id));
@@ -685,7 +753,7 @@ function renderBag() {
       ...Object.entries(left).map(([id, n]) => el("div", { className: "card", textContent: `${id === me.uid ? me.nick + " (나)" : mates[id]?.nick ?? "?"} — ${[1, 2, 3].filter(f => f <= (progress.floor ?? 1) || f === me.f).map(f => `${f}층 ${n[f] ?? 0}`).join(" · ")}` })),
       el("p", { className: "sub", textContent: "열쇠로 잠긴 방 안의 단서는 세지 않아요." })]; })() : []),
     el("h3", { textContent: "📜 내 단서 (퍼즐별)" }),
-    el("p", { className: "sub", textContent: `반짝이는 별 옆에서 🔍 조사를 누르면 주워요. 팀원마다 별이 달라요 — 말로 알려 주세요! 아직 못 주운 내 단서 ${left}개` }),
+    el("p", { className: "sub", textContent: `별이 반짝이는 쪽지 옆에서 🔍 조사를 누르면 주워요. 팀원마다 별이 달라요 — 말로 알려 주세요! 아직 못 주운 내 단서 ${left}개` }),
     ...(groups.length ? [...open, ...closed].map(card) : [el("p", { className: "sub", textContent: "아직 주운 단서가 없어요." })]),
     el("h3", { textContent: `🧩 숫자 조각 (팀 공용) ${pcs.length} / ${PZ?.pieces.length ?? 0}개` }),
     ...(pcs.length ? pcs.map(p => el("div", { className: "card", textContent: `${p.event} — ${p.num}` })) : [el("p", { className: "sub", textContent: "몇몇 퍼즐을 풀면 조각을 얻어요." })]),
@@ -1090,8 +1158,7 @@ function draw() {
   for (const c of mySparkles()) {
     if (!see(c.x, c.y)) continue;
     const k = 0.5 + 0.5 * Math.sin(tw + c.x * 1.7 + c.y);
-    sparkle(ctx, (c.x - cx) * T + T / 2, (c.y - cy) * T + T / 2, T * (0.28 + 0.2 * k), 0.55 + 0.45 * k);
-    sparkle(ctx, (c.x - cx) * T + T * 0.8, (c.y - cy) * T + T * 0.22, T * 0.12 * (1 - k), 0.9); // 옆의 작은 별(엇박자)
+    clueMark(ctx, MAP[c.y][c.x], (c.x - cx) * T + T / 2, (c.y - cy) * T + T / 2, k, c.x * 7 + c.y * 13);
   }
   const monSeen = monR && see(Math.round(monR.x), Math.round(monR.y));
   if (monR && !mon.tid) { // 순찰 중: 괴물이 알아챌 수 있는 칸(걸어서 8칸, 벽에 막히면 제외)을 반투명 빨강으로. 보충쌤이 안 보여도 내 쪽으로 넘어온 범위는 보임
@@ -1149,6 +1216,27 @@ function draw() {
     gr.addColorStop(0, "rgba(0,0,0,0)"); gr.addColorStop(1, "rgba(0,0,0,0.92)");
     ctx.fillStyle = gr; ctx.fillRect(0, 0, w, h);
   }
+}
+// 지도 위 단서: 가구 위에 놓인 쪽지(칠판이면 노란 분필 낙서, 벽 온도계면 별빛만) + 모서리의 작은 별빛. 밤에도 찾을 수 있게 은은한 빛이 숨 쉬듯 번짐
+function clueMark(ctx, ch, x, y, k, h) {
+  const gl = ctx.createRadialGradient(x, y, 0, x, y, T * 0.55); gl.addColorStop(0, `rgba(255,236,170,${0.22 + 0.2 * k})`); gl.addColorStop(1, "rgba(255,236,170,0)");
+  ctx.fillStyle = gl; ctx.fillRect(x - T * 0.55, y - T * 0.55, T * 1.1, T * 1.1);
+  if (ch === "Y") return sparkle(ctx, x, y, T * (0.24 + 0.16 * k), 0.6 + 0.4 * k);
+  ctx.save(); ctx.translate(x, y);
+  if (ch === "B") { // 칠판: 분필로 갈겨 쓴 두 줄
+    ctx.strokeStyle = `rgba(255,226,122,${0.75 + 0.25 * k})`; ctx.lineWidth = Math.max(1.5, T * 0.05); ctx.lineCap = "round"; ctx.beginPath();
+    for (const [dy, w] of [[-0.12, 0.26], [0.04, 0.2]]) { ctx.moveTo(-w * T, dy * T); for (let i = 1; i <= 6; i++) ctx.lineTo((-w + i * w / 3) * T, (dy + (i & 1 ? -0.035 : 0.035)) * T); }
+    ctx.stroke();
+  } else { // 쪽지: 살짝 비뚤게 놓인 낡은 종이, 접힌 귀퉁이, 글씨 줄
+    const w = T * 0.36, hh = T * 0.46, u = Math.max(1, T / 32);
+    ctx.rotate(((h % 5) - 2) * 0.13);
+    ctx.fillStyle = "rgba(0,0,0,0.45)"; ctx.fillRect(-w / 2 + u, -hh / 2 + 2 * u, w, hh);
+    ctx.fillStyle = "#e9dfc2"; ctx.fillRect(-w / 2, -hh / 2, w, hh);
+    ctx.fillStyle = "#b9ad8c"; ctx.beginPath(); ctx.moveTo(w / 2, -hh / 2); ctx.lineTo(w / 2 - 4 * u, -hh / 2); ctx.lineTo(w / 2, -hh / 2 + 4 * u); ctx.fill(); // 접힌 귀퉁이
+    ctx.fillStyle = "#4a4236"; for (let i = 0; i < 4; i++) ctx.fillRect(-w / 2 + 2 * u, -hh / 2 + (3 + i * 3) * u, w - (i === 3 ? 7 : 4) * u, u);
+  }
+  ctx.restore();
+  sparkle(ctx, x + T * 0.22, y - T * 0.26, T * (0.08 + 0.12 * k), 0.65 + 0.35 * k); // 모서리 별빛
 }
 function sparkle(ctx, x, y, r, a) { // 네 갈래 흰 별 + 은은한 빛 번짐
   if (r < 0.5) return;
