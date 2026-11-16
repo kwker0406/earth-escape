@@ -76,12 +76,13 @@ gh run list -R kwker0406/earth-escape -L 1 --json headSha,status,conclusion
 | 3 | 땋은 머리(여) | `braid` | PixelLab 생성 |
 | 4 | 금발 생머리(여) | `blond` | 2번을 고침: 머리 금발, 블레이저 → 흰 와이셔츠(옷깃·앞단·단추·사선 소매 끝·팔 구분선). `shirt2.py` |
 | 5 | 더벅머리 안경(남) | `shaggy` | PixelLab 생성 |
-| 6 | 파마머리(남) | **아직 예전 그림**(코드로 그린 것) | 11월 16일 09:20 생성 예약(아래 7번 참고) |
+| 6 | 파마머리(남) | `perm` | PixelLab 생성(2026-11-16). 곱슬보다는 부스스한 머리에 가깝다 |
 | 7 | 스포츠머리(남) | `buzz` | PixelLab 생성 |
 | 8 | 금발 댄디컷(남) | `dandy` | 5번의 몸·머리(금발) + 7번 얼굴(안경 없음). `compose_boy2.py`. 왼쪽 보는 머리는 오른쪽 것을 뒤집음 |
 
 - 전체를 원본에서 다시 만들기: `bash dev/pixellab/make_chars.sh` (결과가 지금 `chars/`와 똑같이 나오는 것을 확인함).
 - 선생님(보충쌤) 그림은 예전 48×48 그대로.
+- 모의 실험: `node dev/test/simulate.mjs`(소요 시간), `ENGAGE=1 node dev/test/simulate.mjs`(5명 팀 4팀의 사람별 활동·기다림·보충실 시간). 가정값은 파일 위쪽 표.
 - PixelLab 만드는 법(내장 브라우저): `/create-character/new?mode=pro_flash` → Humanoid, 128px, Low Top-Down → 글상자에 설명 입력 → Generate Character(8회 차감) → `/create-character` 목록에서 진행률(%)이 사라질 때까지 기다림 → 새 캐릭터의 `…/rotations/<방향>.png` 4장을 브라우저 안에서 data URL로 받아 저장(작업 환경에서는 직접 못 받음, 403) → `dev/pixellab/<이름>_<방향>.png` → `fit.py <이름> <이름>`. 브라우저 창이 숨겨져 있으면 클릭 대신 JS로 조작한다. 무료 횟수는 하루 5회씩 쌓인다(09:00 KST). 남은 횟수를 사이트에서 찾지 못했다.
 
 ### 지도 (`maps.js` ← `dev/test/gen_maps.py`)
@@ -127,7 +128,7 @@ gh run list -R kwker0406/earth-escape -L 1 --json headSha,status,conclusion
 
 ## 7. 남은 일
 
-- **6번 파마머리**: 2026-11-16 09:20(KST)에 만들도록 예약해 두었다. 이 예약은 **예전 대화에 묶여 있어서 새 대화로는 오지 않는다.** 새 대화에서 6번이 아직 예전 그림이면(`sprites.js`의 파마머리 줄에 `png:`가 없으면) 직접 만든다: 설명 "검은 곱슬 파마머리, 안경 없음, 남색 블레이저+흰 셔츠, 빨간 넥타이, 남색 바지, 갈색 구두" → `perm_<방향>.png` → `fit.py perm perm` → `CHARS[5]`에 `png: "perm"` → `make_chars.sh`에 `perm` 추가.
+- 캐릭터 8명은 모두 새 그림으로 바뀌었다(6번 파마머리 2026-11-16 완료). 예약 작업은 남아 있지 않다.
 - 사용자가 아직 정하지 않은 것(제안만 함):
   - 밤 어둡기 조절(지금 그대로 / 가장자리만 약하게 / 더 어둡게)
   - 손글씨가 작은 폰에서 읽기 불편하면: 글씨 키우기 / 숫자만 또렷한 글꼴 / 내용은 보통 글꼴
