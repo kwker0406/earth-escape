@@ -6,7 +6,7 @@ export const RETARGET_MS = 500;   // 노리는 학생 위치를 0.5초마다 갱
 export const DETECT = 6;          // 쫓던 학생을 놓친 순간 직선 6칸 안(벽 너머 O)의 학생을 알아챔
 export const PATROL_DETECT = 8;   // 순찰 중엔 걸어서 8칸 안(벽 너머 X). 이 범위를 바닥에 빨갛게 보여 줌
 export const PATROL_STEP_MS = 200; // 순찰할 때는 학생보다 느리게 걸음
-export const WARN_MS = 2000, CHASE_MS = 20000, REST_MS = 38000; // 보통·어려움: 1분마다 등장(2 + 20 + 38초)
+export const WARN_MS = 2000, CHASE_MS = 20000, REST_MS = 68000; // 보통·어려움: 1분 30초마다 등장(2 + 20 + 68초)
 // 난이도 '쉬움': 1분 30초마다(2 + 12 + 76초) 12초만 추격
 const TIMING = { easy: [12000, 76000] };
 export const NOISE_SAY = "여긴 왜 이렇게 시끄러워!"; // 어려움: 퍼즐을 풀면 그 소리에 보충쌤이 깜짝 등장
@@ -18,7 +18,7 @@ const rnd = s => { s = Math.imul(s ^ s >>> 16, 0x45d9f3b); s = Math.imul(s ^ s >
 export const firstAt = seed => 60000 + Math.floor(rnd(seed) * 60000); // 60~120초 사이
 
 // 지금 괴물이 어떤 상태인지: { phase: "rest"|"warn"|"chase", n: 몇 번째 등장, left: 이 상태가 끝날 때까지 ms, noise: 깜짝 등장이면 1 }
-// noise: 어려움에서 팀이 마지막으로 퍼즐을 푼 게임 시각. 그때부터 일정이 새로 시작됨(바로 깜짝 등장 → 다시 1분마다)
+// noise: 어려움에서 팀이 마지막으로 퍼즐을 푼 게임 시각. 그때부터 일정이 새로 시작됨(바로 깜짝 등장 → 다시 1분 30초마다)
 export function phaseAt(gameMs, seed, level, noise = null) {
   const [chase, rest] = TIMING[level] ?? [CHASE_MS, REST_MS], CYCLE = WARN_MS + chase + rest;
   const f0 = firstAt(seed), loud = noise != null && noise >= 0 && noise <= gameMs;

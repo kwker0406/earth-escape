@@ -106,8 +106,8 @@ function runOnce(name, S, rnd, level) {
     solve("f3c"); solve("f4b"); if (level === "hard") solve("f4c");
     go(2); finale();
   }
-  // 보충쌤: 1분마다 20초 추격(쉬움은 1분 30초마다 12초). 추격마다 숨느라 멈추고, 팀원이 잡히면 보충실(30초 + 문제)
-  const busy = t.walk + t.think + t.wrong + t.talk + t.move, easy = level === "easy", chases = Math.max(0, Math.floor((busy - firstAt(seed) / 1000) / (easy ? 90 : 60)) + 1) + (level === "hard" ? Math.round(log.length * 0.63) : 0); // 쉬움 1분 30초, 보통·어려움 1분마다. 어려움은 쉬는 중(63%)에 푼 퍼즐마다 깜짝 등장(일정이 새로 시작되므로 근사)
+  // 보충쌤: 1분 30초마다 20초 추격(쉬움은 12초). 추격마다 숨느라 멈추고, 팀원이 잡히면 보충실(30초 + 문제)
+  const busy = t.walk + t.think + t.wrong + t.talk + t.move, easy = level === "easy", chases = Math.max(0, Math.floor((busy - firstAt(seed) / 1000) / 90) + 1) + (level === "hard" ? Math.round(log.length * 0.76) : 0); // 모든 난이도 1분 30초마다. 어려움은 쉬는 중(76%)에 푼 퍼즐마다 깜짝 등장(일정이 새로 시작되므로 근사)
   const jail1 = (i) => { const P = ENGAGE ? IND[ROLES[i]] : S; let jail = JAIL; while (rnd() > P.quiz) jail += 10; jailT[i] += jail; hits[i]++; t.monster += jail * 0.5; }; // 한 명이 잡혀도 나머지는 일부 계속 움직임
   for (let c = 0; c < chases; c++) { t.monster += S.hide * (easy ? 0.6 : 1);   // 쉬움: 12초만 추격
     for (let k = 0; k < TEAM; k++) if (rnd() < (ENGAGE ? IND[ROLES[k]].caught : S.caught) * (easy ? 0.6 : 1)) jail1(k); }
