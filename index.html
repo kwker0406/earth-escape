@@ -254,7 +254,7 @@ import * as net from "./net.js";
 import { MAPS, ROOMS, AREAS } from "./maps.js";
 import { mazeOf, mazeStep, MAZE_STEP_MS, MAZE_REST_MS } from "./monsters.js";
 import { phaseAt, spawnTile, stepToward, nextTarget, patrolStep, sightTiles, hostOf, STEP_MS as MON_STEP_MS, PATROL_STEP_MS,
-  HIDE_WARN_MS, HIDE_MAX_MS, HIDE_COOLDOWN_MS, PLAYER_STEP_MS, CHASE_MS, SEEK_DIST, seekStep, doorWait, LOOK_MS } from "./monsters.js";
+  HIDE_WARN_MS, HIDE_MAX_MS, HIDE_COOLDOWN_MS, PLAYER_STEP_MS, CHASE_MS, SEEK_DIST, seekStep, doorWait, LOOK_MS, NOISE_SAY } from "./monsters.js";
 import { JAIL_QUESTIONS } from "./questions.js";
 import { CHARS, sprite } from "./sprites.js";
 import { drawTile, statue, onArt } from "./tiles.js";
@@ -708,6 +708,8 @@ async function submit(pz, input) {
     if (p.solved[pz.id]) return; // 그사이 팀원이 이미 풀었음
     if (ok) {
       p.solved[pz.id] = true;
+      const gm = net.gameMs(meta); // 어려움: 쉬는 중에 퍼즐을 풀면 소리를 듣고 보충쌤이 깜짝 등장(이미 쫓는 중이면 그대로)
+      if (PZ?.level === "hard" && !pz.final && MONSTER_FLOORS.includes(me.f) && phaseAt(gm, meta.seed ?? 1, "hard", p.noise).phase === "rest") p.noise = gm;
       if (pz.final) { p.escaped = true; p.escapedAt = net.serverNow(); p.escapedMs = Math.max(0, net.gameMs(meta)); } // 순위 = 탈출까지 걸린 게임 시간
     } else { p.tries[pz.id] = (p.tries[pz.id] || 0) + 1; p.wrong = (p.wrong || 0) + 1; (p.lock ??= {})[pz.id] = net.serverNow() + WRONG_LOCK_MS; }
     return p;
@@ -925,7 +927,7 @@ function runMonster(now, ph) {
   const players = Object.entries(here).filter(([, m]) => m.online && m.x != null)
     .map(([id, m]) => id === me.uid ? { id, x: me.x, y: me.y, jail: me.jail, seen: me.seen } : { id, x: m.x, y: m.y, jail: m.jail, seen: m.seen });
   if (!cur) { // 이번 등장의 첫 순간: 가장 가까운 학생에게서 11~14칸 떨어진 곳에 나타남
-    mon = { n: ph.n, f: me.f, ...spawnTile(MAP, players.filter(p => !p.jail), meta.seed ?? 1, ph.n * 7 + me.f), by: me.uid, t, tid: null, h: 0, s0: t, say: "어디 있니~?" };
+    mon = { n: ph.n, f: me.f, ...spawnTile(MAP, players.filter(p => !p.jail), meta.seed ?? 1, ph.n * 7 + me.f), by: me.uid, t, tid: null, h: 0, s0: t, say: ph.noise ? NOISE_SAY : "어디 있니~?" };
     mTarget = null; return net.setMonster(mon);
   }
   if (mon.w > t || t - (mon.s0 ?? 0) < LOOK_MS) { mon = { ...mon, by: me.uid, t }; return net.setMonster(mon); } // 문을 지난 뒤 2초·나타난 직후 1.5초는 멈춤(그동안도 '살아 있음'은 알림)
@@ -969,7 +971,7 @@ function loop(now) {
 }
 function frame(now) {
   if (intro?.active) return intro.frame(now);
-  const ph = MONSTER_FLOORS.includes(me.f) ? phaseAt(net.gameMs(meta), meta.seed ?? 1, PZ?.level) : { phase: "rest", n: -1, left: 0 };
+  const ph = MONSTER_FLOORS.includes(me.f) ? phaseAt(net.gameMs(meta), meta.seed ?? 1, PZ?.level, progress.noise) : { phase: "rest", n: -1, left: 0 };
   const active = ph.phase === "chase" && mon?.n === ph.n && mon.f === me.f ? mon : null; // 이번 등장·이 층의 괴물만(문 앞에서 멈춘 동안도 보임)
   const monLeft = ph.left;
   setMode(active && !me.jail && playing() ? "chase" : "ambient"); // 보충쌤이 이 층에서 쫓는 동안 추격 음악
@@ -1012,7 +1014,7 @@ function frame(now) {
   const near = active && Math.abs(active.x - me.x) + Math.abs(active.y - me.y) <= 3;
   $("mapbox").classList.toggle("danger", playing() && !me.jail && !!near);
   const monLine = !playing() || me.jail || !MONSTER_FLOORS.includes(me.f) ? ""
-    : ph.phase === "warn" ? "⚠️ 보충쌤이 곧 나타나요! 숨을 곳을 찾자"
+    : ph.phase === "warn" ? (ph.noise ? `📢 보충쌤: "${NOISE_SAY}" 숨어!` : "⚠️ 보충쌤이 곧 나타나요! 숨을 곳을 찾자")
     : ph.phase !== "chase" ? ""
     : active?.tid === me.uid ? `😱 보충쌤이 나를 쫓아온다! ${Math.ceil(monLeft / 1000)}초 버티기`
     : `👨‍🔬 보충쌤이 이 층에 있다 · ${!active ? "어딘가에서 나타나는 중" : active.tid ? "추격 중" : "순찰 중"} · ${Math.ceil(monLeft / 1000)}초 버티기${hidden ? " · 🫣 숨는 중" : ""}`;

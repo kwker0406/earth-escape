@@ -13,7 +13,7 @@ assert.equal(phaseAt(f, 42).phase, "warn");
 assert.equal(phaseAt(f + 2000, 42).phase, "chase");
 assert.equal(phaseAt(f + 21999, 42).phase, "chase");
 assert.equal(phaseAt(f + 22000, 42).phase, "rest");
-assert.deepEqual([phaseAt(f + 142000, 42).phase, phaseAt(f + 142000, 42).n], ["warn", 1]);
+assert.deepEqual([phaseAt(f + 60000, 42).phase, phaseAt(f + 60000, 42).n], ["warn", 1]); // 1분마다
 assert.equal(phaseAt(-1, 42).phase, "rest");
 // 등장 위치(1층 실제 지도): 괴물이 갈 수 있는 칸, 같은 입력이면 같은 칸, 가장 가까운 학생과 8~10칸이 골고루
 const F1a = MAPS[1], players = [{ x: 20, y: 56 }, { x: 60, y: 57 }], got = new Set();
@@ -110,11 +110,17 @@ sk = seekStep(F1, { x: 13, y: 58, s1: 5000 }, L, go, 5000 + SEEK_MS);
 assert.deepEqual([sk.step.x, sk.step.y, sk.say], [12, 58, "여기있네!"], "잠시 뒤 사물함을 엶");
 assert.equal(seekStep(F1, { x: 14, y: 57 }, { x: 13, y: 57 }, go, 0), null, "숨지 않은 학생이면 보통 추격");
 console.log("monsters(rooms) OK");
-// 쉬움: 약 5분마다 12초 추격
+// 쉬움: 1분 30초마다 12초 추격
 { const f0 = firstAt(42);
   assert.equal(phaseAt(f0 + 2000, 42, "easy").phase, "chase"); assert.equal(phaseAt(f0 + 14000, 42, "easy").phase, "rest");
-  assert.deepEqual([phaseAt(f0 + 300000, 42, "easy").phase, phaseAt(f0 + 300000, 42, "easy").n], ["warn", 1]);
-  assert.equal(phaseAt(f0 + 21999, 42, "normal").phase, "chase", "보통·어려움은 그대로"); console.log("easy monster OK"); }
+  assert.deepEqual([phaseAt(f0 + 90000, 42, "easy").phase, phaseAt(f0 + 90000, 42, "easy").n], ["warn", 1]);
+  assert.equal(phaseAt(f0 + 21999, 42, "normal").phase, "chase", "보통·어려움은 20초 추격"); console.log("easy monster OK"); }
+// 어려움 깜짝 등장: 퍼즐을 푼 시각(noise)부터 바로 경고 → 추격, 그 뒤 다시 1분마다. 번호는 정해진 등장과 겹치지 않음
+{ const f0 = firstAt(42), nz = f0 + 30000, a = phaseAt(nz, 42, "hard", nz), b = phaseAt(nz + 2000, 42, "hard", nz), c = phaseAt(nz + 22000, 42, "hard", nz), d = phaseAt(nz + 60000, 42, "hard", nz);
+  assert.deepEqual([a.phase, a.noise, b.phase, b.noise, c.phase, d.phase, d.noise], ["warn", 1, "chase", 1, "rest", "warn", undefined]);
+  assert.ok(a.n !== phaseAt(nz, 42, "hard").n && d.n === a.n + 1, "깜짝 등장 번호");
+  assert.equal(phaseAt(nz - 1, 42, "hard", nz).phase, phaseAt(nz - 1, 42, "hard").phase, "푼 시각 전에는 원래 일정");
+  console.log("noise monster OK"); }
 
 // ── 조소 2실 상주 보충쌤 ──
 {

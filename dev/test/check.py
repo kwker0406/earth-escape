@@ -238,7 +238,8 @@ try:
         cin = me_pos(c); print("c in jail at", cin)
         assert c.evaluate(f"import('./maps.js').then(m => m.MAPS[1][{cin['y']}][{cin['x']}])") == "j", "잡히면 보충실 안으로 가야 함"
         a.evaluate("""async () => { const { firstAt } = await import('./monsters.js'); const db = fakeGet(); const s = Object.values(db.sessions)[0];
-            Object.assign(s.meta, { playedMs: firstAt(s.meta.seed) + 30000, startedAt: Date.now() }); // 괴물 쉬는 시간(구출 중에 잡히지 않게)
+            Object.assign(s.meta, { playedMs: firstAt(s.meta.seed) + 22100, startedAt: Date.now() }); // 괴물 쉬는 시간(구출 중에 잡히지 않게)
+            for (const tm of Object.values(s.teams)) if (tm.progress) delete tm.progress.noise; // 어려움 깜짝 등장 기록도 지움
             fakeSet(db); }""")
         set_pos(a, *gate_out); a.wait_for_function("document.getElementById('actBtn').textContent.includes('구출')", timeout=3000)
         a.click("#actBtn"); c.wait_for_function("!document.getElementById('jail').classList.contains('on')", timeout=4000)
@@ -250,7 +251,7 @@ try:
         set_pos(a, cs[0], cs[1] + 2, 1); a.wait_for_timeout(800)
         print("locked:", a.inner_text("#alert")); assert "잠겨" in a.inner_text("#alert"), "관문 퍼즐 전에 계단이 열림"
         a.evaluate("""async ([c1]) => { const { firstAt } = await import('./monsters.js'); const db = fakeGet(); const s = Object.values(db.sessions)[0];
-            s.teams[c1].progress.solved.f1b = true; Object.assign(s.meta, { playedMs: firstAt(s.meta.seed) + 30000, startedAt: Date.now() }); // 괴물 쉬는 시간
+            s.teams[c1].progress.solved.f1b = true; for (const tm of Object.values(s.teams)) if (tm.progress) delete tm.progress.noise; Object.assign(s.meta, { playedMs: firstAt(s.meta.seed) + 22100, startedAt: Date.now() }); // 괴물 쉬는 시간
             fakeSet(db); }""", [codes[0]])
         a.wait_for_function("document.getElementById('alert').textContent.includes('모이는 중 (1/3명')", timeout=3000)
         print("alone:", a.inner_text("#alert"))
@@ -294,7 +295,7 @@ try:
         a.evaluate("""async ([c2]) => { const { firstAt } = await import('./monsters.js'); const db = fakeGet();
             const s = Object.values(db.sessions)[0]; delete s.teams[c2].progress; delete s.teams[c2].members; delete s.teams[c2].pos;
             Object.keys(s.teams[c2].slots).forEach(k => s.teams[c2].slots[k] = false);
-            Object.assign(s.meta, { playedMs: firstAt(s.meta.seed) + 30000, startedAt: Date.now(), endsAt: Date.now() + 600000 }); // 괴물 쉬는 시간
+            for (const tm of Object.values(s.teams)) if (tm.progress) delete tm.progress.noise; Object.assign(s.meta, { playedMs: firstAt(s.meta.seed) + 22100, startedAt: Date.now(), endsAt: Date.now() + 600000 }); // 괴물 쉬는 시간
             fakeSet(db); }""", [codes[1]])
         g = student(ctx, codes[1], "혼자", 6); g.wait_for_timeout(300)
         PZS = g.evaluate("""async () => { const { buildPuzzles } = await import('./puzzles.js');
@@ -325,7 +326,7 @@ try:
             for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
                 if MAPS[f][y + dy][x + dx] == ".": return x + dx, y + dy
         def ride(f, ch, label, to):  # 혼자라 색칠 칸에 서면 바로 과반수 → 3초 뒤 자동 이동
-            zx, zy = zone(f, ch); set_pos(g, zx, zy, f)
+            calm(); zx, zy = zone(f, ch); set_pos(g, zx, zy, f)
             g.wait_for_function(f"document.getElementById('floorName').textContent.startsWith({to!r})", timeout=7000)
             print("moved", f, "->", to, me_pos(g))
         zx, zy = zone(1, "K"); set_pos(g, zx, zy, 1); g.wait_for_function("document.getElementById('alert').textContent.includes('잠겨')", timeout=3000)
@@ -349,8 +350,12 @@ try:
             if (m[y][x] === 'B' && m[y][x + 1] === '.') return [x + 1, y]; })""")
         set_pos(g, bx, by, 1); investigate("🧑‍🏫"); g.wait_for_selector("#pz .board", timeout=3000)
         print("board:", g.inner_text("#pz .board").replace("\n", " | ")[:120]); g.screenshot(path=str(out / "board.png")); g.click("#pz .close")
+        def calm():  # 퍼즐 흐름 시험 중에는 보충쌤이 끼어들지 않게: 쉬는 시간의 시작으로 되돌리고 깜짝 등장 기록도 지움(1분마다 오므로)
+            g.evaluate("""async () => { const { firstAt } = await import('./monsters.js'); const db = fakeGet(), s = Object.values(db.sessions)[0];
+                for (const tm of Object.values(s.teams)) if (tm.progress) delete tm.progress.noise;
+                Object.assign(s.meta, { playedMs: firstAt(s.meta.seed) + 22100, startedAt: Date.now() }); fakeSet(db); }""")
         def solve(f, i):
-            pz = PZS[f][i]; sx, sy = find(f, str(i + 1)); set_pos(g, sx, sy, f)
+            calm(); pz = PZS[f][i]; sx, sy = find(f, str(i + 1)); set_pos(g, sx, sy, f)
             investigate("🔍")
             box = g.locator("#pz")
             kind = pz["type"] + ("_dial" if box.locator(".dial").count() else "")
@@ -400,7 +405,10 @@ try:
             assert team()["got"][mg["key"]] == g.evaluate("sessionStorage.fakeuid"), "미니게임 단서를 못 얻음"
             print("mini game (nonsense) ✓", f, "층", ask, "→", ans); mini_done[0] = True
         mini_check(1)
-        solve(1, 0); solve(1, 1)  # 1층의 나머지(경고판·탈출문)는 마지막에
+        solve(1, 0)
+        nz = team()["progress"].get("noise"); g.wait_for_timeout(300); al = g.inner_text("#alert"); print("noise:", nz, al)
+        assert nz is not None and "시끄러워" in al, "어려움: 퍼즐을 풀어도 보충쌤이 깜짝 등장하지 않음"
+        solve(1, 1)  # 1층의 나머지(경고판·탈출문)는 마지막에
         assert team()["items"]["a"]["by"] == g.evaluate("sessionStorage.fakeuid"), "열쇠가 가방에 없음"
         ride(1, "K", "2층", "2층")
         mini_check(2)

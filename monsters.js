@@ -6,9 +6,10 @@ export const RETARGET_MS = 500;   // 노리는 학생 위치를 0.5초마다 갱
 export const DETECT = 6;          // 쫓던 학생을 놓친 순간 직선 6칸 안(벽 너머 O)의 학생을 알아챔
 export const PATROL_DETECT = 8;   // 순찰 중엔 걸어서 8칸 안(벽 너머 X). 이 범위를 바닥에 빨갛게 보여 줌
 export const PATROL_STEP_MS = 200; // 순찰할 때는 학생보다 느리게 걸음
-export const WARN_MS = 2000, CHASE_MS = 20000, REST_MS = 120000; // 약 2분 20초마다 등장(예전 3분 20초)
-// 난이도 '쉬움': 약 5분마다(2+12+286초) 12초만 추격
-const TIMING = { easy: [12000, 286000] };
+export const WARN_MS = 2000, CHASE_MS = 20000, REST_MS = 38000; // 보통·어려움: 1분마다 등장(2 + 20 + 38초)
+// 난이도 '쉬움': 1분 30초마다(2 + 12 + 76초) 12초만 추격
+const TIMING = { easy: [12000, 76000] };
+export const NOISE_SAY = "여긴 왜 이렇게 시끄러워!"; // 어려움: 퍼즐을 풀면 그 소리에 보충쌤이 깜짝 등장
 const SAFE_DIST = 4;              // 시작점 주변은 들어가지 않음
 export const HIDE_WARN_MS = 45000, HIDE_MAX_MS = 60000;
 export const HIDE_COOLDOWN_MS = 15000; // 사물함에서 나오면 15초 동안 다시 못 숨음(숨었다 나왔다 하며 괴물 유인 방지)
@@ -16,14 +17,17 @@ export const HIDE_COOLDOWN_MS = 15000; // 사물함에서 나오면 15초 동안
 const rnd = s => { s = Math.imul(s ^ s >>> 16, 0x45d9f3b); s = Math.imul(s ^ s >>> 16, 0x45d9f3b); return ((s ^ s >>> 16) >>> 0) / 4294967296; };
 export const firstAt = seed => 60000 + Math.floor(rnd(seed) * 60000); // 60~120초 사이
 
-// 지금 괴물이 어떤 상태인지: { phase: "rest"|"warn"|"chase", n: 몇 번째 등장, left: 이 상태가 끝날 때까지 ms }
-export function phaseAt(gameMs, seed, level) {
+// 지금 괴물이 어떤 상태인지: { phase: "rest"|"warn"|"chase", n: 몇 번째 등장, left: 이 상태가 끝날 때까지 ms, noise: 깜짝 등장이면 1 }
+// noise: 어려움에서 팀이 마지막으로 퍼즐을 푼 게임 시각. 그때부터 일정이 새로 시작됨(바로 깜짝 등장 → 다시 1분마다)
+export function phaseAt(gameMs, seed, level, noise = null) {
   const [chase, rest] = TIMING[level] ?? [CHASE_MS, REST_MS], CYCLE = WARN_MS + chase + rest;
-  const t = gameMs - firstAt(seed);
+  const f0 = firstAt(seed), loud = noise != null && noise >= 0 && noise <= gameMs;
+  const t = gameMs - (loud ? noise : f0);
   if (gameMs < 0 || t < 0) return { phase: "rest", n: -1, left: -t };
-  const n = Math.floor(t / CYCLE), p = t % CYCLE;
-  if (p < WARN_MS) return { phase: "warn", n, left: WARN_MS - p };
-  if (p < WARN_MS + chase) return { phase: "chase", n, left: WARN_MS + chase - p, chase };
+  const k = Math.floor(t / CYCLE), p = t % CYCLE, n = loud ? 1000 + Math.floor(noise / 100) * 10 + k : k; // 깜짝 등장은 번호를 따로 매겨 겹치지 않게
+  const fx = loud && k === 0 ? { noise: 1 } : {};
+  if (p < WARN_MS) return { phase: "warn", n, left: WARN_MS - p, ...fx };
+  if (p < WARN_MS + chase) return { phase: "chase", n, left: WARN_MS + chase - p, chase, ...fx };
   return { phase: "rest", n, left: CYCLE - p };
 }
 

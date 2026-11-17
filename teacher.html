@@ -219,7 +219,7 @@ function paintMini(cv, code, members) {
   g.drawImage(mapImage(f, S, dpr), 0, 0, MAP[0].length * S, MAP.length * S);
   g.font = `${S * 1.6}px sans-serif`; g.textAlign = "center"; g.textBaseline = "middle";
   g.fillStyle = "#ff3b3b";
-  const ph = phaseAt(net.gameMs(data.meta), data.meta.seed ?? 1, data.meta.levels?.[code]), mo = data.monster[code]?.f === f ? data.monster[code] : null;
+  const ph = phaseAt(net.gameMs(data.meta), data.meta.seed ?? 1, data.meta.levels?.[code], data.progress[code]?.noise), mo = data.monster[code]?.f === f ? data.monster[code] : null;
   if (ph.phase === "chase" && mo?.n === ph.n && !mo.tid) {
     g.fillStyle = "rgba(255, 45, 45, 0.25)";
     for (const k of sightTiles(MAP, mo).keys()) { const [x, y] = k.split(",").map(Number); g.fillRect(x * S, y * S, S, S); }
