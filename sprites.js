@@ -241,6 +241,7 @@ function teacher(ctx, dir, frame) {
 }
 
 // kind: 캐릭터 번호 또는 "teacher". dir: d·u·l·r. frame: 0 서 있기, 1·2 걸음
+const pngs = new Map(); // 주소 → 그림
 export function sprite(kind, dir = "d", frame = 0) {
   const key = `${kind}|${dir}|${frame}`;
   if (cache.has(key)) return cache.get(key);
@@ -248,10 +249,12 @@ export function sprite(kind, dir = "d", frame = 0) {
   const cv = document.createElement("canvas"); cv.width = cv.height = N;
   const ctx = cv.getContext("2d");
   const ch = CHARS[kind];
-  if (ch?.png) { // PixelLab 그림: 파일이 늦게 오므로 받는 즉시 같은 캔버스에 그림(걸을 때는 2px 위로)
-    const img = new Image();
-    img.onload = () => { ctx.drawImage(img, 0, frame ? -2 : 0); ctx.globalCompositeOperation = "destination-over"; painter(ctx).oval(64, 121, 22, 3, SHADOW); };
-    img.src = new URL(`./chars/${ch.png}_${{ d: "south", u: "north", r: "east", l: "west" }[dir]}.png`, import.meta.url).href;
+  if (ch?.png) { // PixelLab 그림(512×512, 4배로 저장): 파일이 늦게 오므로 받는 즉시 같은 캔버스에 그림(걸을 때는 2px 위로)
+    const url = new URL(`./chars/${ch.png}_${{ d: "south", u: "north", r: "east", l: "west" }[dir]}.png`, import.meta.url).href;
+    const paint = img => { ctx.imageSmoothingQuality = "high"; ctx.drawImage(img, 0, frame ? -2 : 0, N, N); ctx.globalCompositeOperation = "destination-over"; painter(ctx).oval(64, 121, 22, 3, SHADOW); };
+    let im = pngs.get(url); // 같은 파일은 한 번만 받아서 풀기(서 있기·걸음 3장이 함께 씀)
+    if (!im) { im = new Image(); im.waiting = []; im.onload = () => { im.waiting.forEach(f => f(im)); im.waiting = null; }; im.src = url; pngs.set(url, im); }
+    im.waiting ? im.waiting.push(paint) : paint(im);
     cache.set(key, cv); return cv;
   }
   if (dir === "l") { ctx.translate(N, 0); ctx.scale(-1, 1); } // 왼쪽은 오른쪽 모습을 뒤집음
