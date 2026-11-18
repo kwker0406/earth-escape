@@ -1,7 +1,8 @@
 #!/bin/bash
 # 캐릭터 그림을 원본(PixelLab)에서 다시 만든다. dev/setup.sh 를 먼저 한 번 돌릴 것. 결과: chars/<이름>_<방향>.png
 set -e; cd "$(dirname "$0")"
-for n in bob long braid buzz perm; do python3 fit.py $n $n; done          # 1·2·3·7·6번: 원본 그대로 크기만 맞춤
+for n in bob long buzz; do python3 fit.py $n $n; done                     # 1·2·7번: 원본 그대로 크기만 맞춤
+for n in braid perm; do python3 eyefix.py $n && python3 fit.py ${n}_eye $n; done   # 3·6번: 앞모습 두 눈 크기를 맞춘 뒤
 python3 -c "                                                                  # 5번: 안경 렌즈 때문에 눈빛이 없음 → 앞모습 두 눈에 흰 눈빛 2칸씩
 from PIL import Image
 for d in ['south', 'north', 'east', 'west']:
