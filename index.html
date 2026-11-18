@@ -1249,9 +1249,9 @@ function sparkle(ctx, x, y, r, a) { // 네 갈래 흰 별 + 은은한 빛 번짐
   for (let i = 0; i < 8; i++) { const ang = i * Math.PI / 4 - Math.PI / 2, d = i % 2 ? r * 0.22 : r; ctx.lineTo(x + Math.cos(ang) * d, y + Math.sin(ang) * d); }
   ctx.closePath(); ctx.fill(); ctx.restore();
 }
-const WALK_MS = 160; // 걸음 모션 한 박자
+const WALK_MS = 110; // 걸음 모션 한 박자(8장 = 두 걸음 약 0.9초)
 // 화면 위치가 목표 칸을 따라가는 중이면 걸음(1·2 번갈아), 아니면 서 있기(0)
-const walkFrame = (o, x, y) => Math.abs(o.rx - x) + Math.abs(o.ry - y) > 0.02 ? 1 + Math.floor(performance.now() / WALK_MS) % 2 : 0;
+const walkFrame = (o, x, y) => Math.abs(o.rx - x) + Math.abs(o.ry - y) > 0.02 ? 1 + Math.floor(performance.now() / WALK_MS) % 8 : 0; // 1~8(걷기 그림 8장. 코드 그림은 sprite()가 1·2로 줄임)
 function drawChar(o, av, nick, cx, cy, mine) {
   const px = (o.rx - cx) * T + T / 2, py = (o.ry - cy) * T + T / 2;
   if (mine) { ctx.beginPath(); ctx.ellipse(px, py + T * 0.4, T * 0.42, T * 0.13, 0, 0, Math.PI * 2); ctx.fillStyle = "#ff7a3d99"; ctx.fill(); } // 내 캐릭터 발밑 표시

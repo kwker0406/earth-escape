@@ -12,3 +12,5 @@ for d in ['south', 'north', 'east', 'west']:
     im.save(f'shaggy_lit_{d}.png')" && python3 fit.py shaggy_lit shaggy          # 1·2·3·7·5·6번: 원본 그대로 크기만 맞춤
 python3 shirt2.py && python3 fit.py blond blond                               # 4번: 2번(long)을 금발 + 흰 셔츠로
 python3 recolor_boy.py shaggy dandy2 && python3 compose_boy2.py && python3 fit.py dandy4 dandy   # 8번: 5번 몸·머리(금발) + 7번 얼굴
+# 걷기 8장(PixelLab V3 Walking, 방향당 2~3회): walk/<원본>_walk_<방향>_<0..7>.png → chars/<이름>_walk_<방향>.png. sprites.js CHARS에 walk: "dur" 처럼 방향을 적음(왼쪽은 오른쪽을 뒤집음)
+for d in south east north; do python3 walkfit.py buzz buzz $d; done

@@ -8,7 +8,7 @@ export const CHARS = [
   { name: "금발 생머리", emoji: "👱‍♀️", girl: 1, hair: "long", color: "blond", png: "blond" },
   { name: "더벅머리 안경", emoji: "🤓", girl: 0, hair: "shaggy", color: "black", glasses: 1, png: "shaggy" },
   { name: "파마머리", emoji: "👨‍🦱", girl: 0, hair: "perm", color: "black", png: "perm" },
-  { name: "스포츠머리", emoji: "👦", girl: 0, hair: "buzz", color: "black", png: "buzz" },
+  { name: "스포츠머리", emoji: "👦", girl: 0, hair: "buzz", color: "black", png: "buzz", walk: "dur" },
   { name: "금발 댄디컷", emoji: "👱‍♂️", girl: 0, hair: "dandy", color: "blond", png: "dandy" },
 ];
 const SHADOW = "rgba(0,0,0,0.28)";
@@ -240,7 +240,7 @@ function teacher(ctx, dir, frame) {
   rect(hx - 3, 17, 6, 1, SKIN_D);                                                                       // 턱 그늘
 }
 
-// kind: 캐릭터 번호 또는 "teacher". dir: d·u·l·r. frame: 0 서 있기, 1·2 걸음
+// kind: 캐릭터 번호 또는 "teacher". dir: d·u·l·r. frame: 0 서 있기, 1~8 걸음(걷기 그림이 없으면 1·2만 씀)
 const pngs = new Map(); // 주소 → 그림
 export function sprite(kind, dir = "d", frame = 0) {
   const key = `${kind}|${dir}|${frame}`;
@@ -250,13 +250,19 @@ export function sprite(kind, dir = "d", frame = 0) {
   const ctx = cv.getContext("2d");
   const ch = CHARS[kind];
   if (ch?.png) { // PixelLab 그림(512×512, 4배로 저장): 파일이 늦게 오므로 받는 즉시 같은 캔버스에 그림(걸을 때는 2px 위로)
-    const url = new URL(`./chars/${ch.png}_${{ d: "south", u: "north", r: "east", l: "west" }[dir]}.png`, import.meta.url).href;
-    const paint = img => { ctx.imageSmoothingQuality = "high"; ctx.drawImage(img, 0, frame ? -2 : 0, N, N); ctx.globalCompositeOperation = "destination-over"; painter(ctx).oval(64, 121, 22, 3, SHADOW); };
+    // 걷기 그림이 있는 방향(ch.walk: "d","u","r" 중; 왼쪽은 오른쪽을 뒤집음)은 8장 띠에서 frame-1번째 칸, 없으면 서 있는 그림을 2px 띄움
+    const wd = dir === "l" ? "r" : dir, walk = frame && ch.walk?.includes(wd), name = { d: "south", u: "north", r: "east", l: "west" };
+    const url = new URL(`./chars/${ch.png}_${walk ? "walk_" + name[wd] : name[dir]}.png`, import.meta.url).href;
+    const paint = img => { ctx.imageSmoothingQuality = "high";
+      if (walk) { const S = img.height; if (dir === "l") { ctx.translate(N, 0); ctx.scale(-1, 1); } ctx.drawImage(img, ((frame - 1) % (img.width / S)) * S, 0, S, S, 0, 0, N, N); ctx.setTransform(1, 0, 0, 1, 0, 0); }
+      else ctx.drawImage(img, 0, frame ? -2 : 0, N, N);
+      ctx.globalCompositeOperation = "destination-over"; painter(ctx).oval(64, 121, 22, 3, SHADOW); };
     let im = pngs.get(url); // 같은 파일은 한 번만 받아서 풀기(서 있기·걸음 3장이 함께 씀)
     if (!im) { im = new Image(); im.waiting = []; im.onload = () => { im.waiting.forEach(f => f(im)); im.waiting = null; }; im.src = url; pngs.set(url, im); }
     im.waiting ? im.waiting.push(paint) : paint(im);
     cache.set(key, cv); return cv;
   }
+  frame = frame ? 1 + (frame - 1) % 2 : 0; // 코드로 그린 캐릭터는 걸음 2장(걸음 번호가 1~8로 와도)
   if (dir === "l") { ctx.translate(N, 0); ctx.scale(-1, 1); } // 왼쪽은 오른쪽 모습을 뒤집음
   if (frame) ctx.translate(0, kind === "teacher" ? -1 : -2); // 걸을 때 몸이 살짝 통통 튐
   if (kind === "teacher") teacher(ctx, dir, frame);
