@@ -13,4 +13,5 @@ for d in ['south', 'north', 'east', 'west']:
 python3 shirt2.py && python3 fit.py blond blond                               # 4번: 2번(long)을 금발 + 흰 셔츠로
 python3 recolor_boy.py shaggy dandy2 && python3 compose_boy2.py && python3 fit.py dandy4 dandy   # 8번: 5번 몸·머리(금발) + 7번 얼굴
 # 걷기 8장(PixelLab V3 Walking, 방향당 2~3회): walk/<원본>_walk_<방향>_<0..7>.png → chars/<이름>_walk_<방향>.png. sprites.js CHARS에 walk: "dur" 처럼 방향을 적음(왼쪽은 오른쪽을 뒤집음)
-for d in south east north; do python3 walkfit.py buzz buzz $d; done
+for n in buzz shaggy; do for d in south east north; do python3 walkfit.py $n $n $d; done; done
+for d in south; do python3 walkfit.py perm perm $d; done   # 6번: 나머지 방향은 받는 대로 추가

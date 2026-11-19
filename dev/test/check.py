@@ -190,7 +190,7 @@ try:
         set_pos(a, 12, 58); set_pos(c, 35, 56)
         # ── 사물함 재사용 대기: 나오자마자 다시 들어가려 하면 막힘 ──
         def step(pg, key):
-            pg.keyboard.down(key); pg.wait_for_timeout(90); pg.keyboard.up(key); pg.wait_for_timeout(200)
+            pg.keyboard.down(key); pg.wait_for_timeout(30); pg.keyboard.up(key); pg.wait_for_timeout(200)  # 오래 누르면 느린 기계에서 두 칸 감
         step(a, "ArrowRight"); out_pos = me_pos(a); print("left locker to", out_pos)
         assert (out_pos["x"], out_pos["y"]) == (13, 58)
         step(a, "ArrowLeft"); back = me_pos(a); print("try re-enter ->", back, "|", a.inner_text("#alert"))
@@ -425,7 +425,7 @@ try:
         # 조소 1실: 조각상을 밀면 팀 기록(progress.statues)이 바뀌고, 조사 → 되돌리기로 처음 자리
         home = g.evaluate("import('./maps.js').then(({ MAPS }) => { const m = MAPS[1], out = []; m.forEach((r, y) => [...r].forEach((ch, x) => { if (ch === 'Q') out.push([x, y]); })); return out; })")
         qx, qy = max(home, key=lambda p: p[1])  # 입구 줄의 조각상
-        set_pos(g, qx - 1, qy, 1); step(g, "ArrowRight"); g.wait_for_timeout(500)
+        calm(); set_pos(g, qx - 1, qy, 1); step(g, "ArrowRight"); g.wait_for_timeout(500)  # 보충쌤이 끼어들면 잡혀서 못 밂
         assert f"{qx + 1},{qy}" in (team()["progress"].get("statues") or []) and (me_pos(g)["x"], me_pos(g)["y"]) == (qx, qy), "조각상이 안 밀림"
         print("statue pushed ✓", team()["progress"]["statues"])
         investigate("🗿"); g.wait_for_timeout(500); assert not team()["progress"].get("statues"), "되돌리기 실패"
