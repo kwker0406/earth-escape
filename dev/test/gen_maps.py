@@ -127,6 +127,10 @@ def floor_map(f, spec):
     hs = sorted((x, y) for y in range(H) for x in range(len(g[0])) if g[y][x] == 'H')
     for i, (x, y) in enumerate(hs):                        # 숨는 사물함은 3개 중 1개만 남김(긴장감). 나머지는 보통 사물함
         if i % 3: g[y][x] = 'L'
+        else:                                              # 숨는 사물함 앞이 이젤·책상 등으로 막혀 있으면 그 가구를 치워 들어갈 수 있게
+            nb = [(x + dx, y + dy) for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)) if 0 <= y + dy < H and 0 <= x + dx < len(g[0])]
+            if not any(g[b][a] in '.,mz' for a, b in nb):
+                a, b = next((a, b) for a, b in nb if g[b][a] in 'EDPUNOA'); g[b][a] = '.'
     for x, y in spec.get("walls", []): g[y][x] = 'Y'       # 벽에 붙은 온도계(단서)
     return [''.join(r) for r in g], rooms, areas
 

@@ -16,3 +16,8 @@ for (const seed of [1, 7, 12345, 999]) for (const [code, no] of [["AAAA", 1], ["
   });
 }
 console.log(bad ? "문제 " + bad : "모든 퍼즐 칸·단서 칸에 걸어서 닿음");
+// 숨는 사물함(H)은 모두 바로 옆에 바닥이 있어야 들어갈 수 있음(앞을 가구가 막으면 못 숨음)
+{ const { MAPS: M } = await import("../game/maps.js"); let n = 0;
+  M.forEach((m, f) => m?.forEach((r, y) => [...r].forEach((c, x) => { if (c !== "H") return; n++;
+    if (![[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => ".,mz".includes(m[y + dy]?.[x + dx] ?? "#"))) throw new Error(`막힌 사물함 ${f}층 (${x},${y})`); })));
+  console.log("lockers reachable OK", n); }
