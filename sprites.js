@@ -7,7 +7,7 @@ export const CHARS = [
   { name: "땋은 머리", emoji: "👧", girl: 1, hair: "braid", color: "black", png: "braid" },
   { name: "금발 생머리", emoji: "👱‍♀️", girl: 1, hair: "long", color: "blond", png: "blond" },
   { name: "더벅머리 안경", emoji: "🤓", girl: 0, hair: "shaggy", color: "black", glasses: 1, png: "shaggy", walk: "dur" },
-  { name: "파마머리", emoji: "👨‍🦱", girl: 0, hair: "perm", color: "black", png: "perm", walk: "d" },
+  { name: "파마머리", emoji: "👨‍🦱", girl: 0, hair: "perm", color: "black", png: "perm", walk: "dur" },
   { name: "스포츠머리", emoji: "👦", girl: 0, hair: "buzz", color: "black", png: "buzz", walk: "dur" },
   { name: "금발 댄디컷", emoji: "👱‍♂️", girl: 0, hair: "dandy", color: "blond", png: "dandy" },
 ];
