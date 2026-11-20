@@ -157,7 +157,7 @@
   .board .clue { color:#ffe27a; font-size:27px; transform:rotate(.4deg); text-shadow: 0 0 1px #ffe27a99, 0 0 7px #ffe27a44; }
   /* ── 단서: 진짜 물건처럼(쪽지·카드·스케치북 조각·깨진 설명판·인쇄 서류·이름표·엿들은 말). 손전등으로 비춰 본 낡은 종이 느낌 ── */
   .modal { background: radial-gradient(130% 75% at 50% 16%, #2c2637f7 0, #120f1afb 58%, #06050afd 100%); }
-  .paper { position:relative; flex:none; margin:10px 6px 4px; padding:14px 14px 12px; color:#2a2218; word-break:keep-all; transform:rotate(var(--tilt, -.6deg));
+  .paper { position:relative; flex:none; box-sizing:border-box; width:fit-content; min-width:min(220px, 88%); max-width:min(88%, 420px); margin:10px 6px 4px; padding:14px 14px 12px; color:#2a2218; word-break:keep-all; transform:rotate(var(--tilt, -.6deg));
     font-family:"Gaegu","Chalkboard SE","Comic Sans MS",cursive; font-weight:700; font-size:21px; line-height:1.32;
     background:radial-gradient(60px 40px at 82% 78%, #8a5a2a2e, transparent 70%), radial-gradient(90px 50px at 12% 10%, #7a5a2a22, transparent 70%), #e7dcc0;
     box-shadow:0 6px 14px #000b, inset 0 0 30px #6a4a1a3d; }
@@ -323,7 +323,7 @@ function clueEl(c) {
   const t = c.t, icon = [...t][0], rest = t.slice(icon.length).replace(/^\uFE0F?\s*/, ""), cut = rest.indexOf(": ");
   const h = [...c.key].reduce((a, ch) => a * 31 + ch.charCodeAt(0) | 0, 7), kind = PAPER[icon] ?? "note";
   const e = el("div", { className: "paper " + kind }, el("small", { textContent: `${icon} ${cut > 0 ? rest.slice(0, cut) : "단서"}` }), cut > 0 ? rest.slice(cut + 2) : rest);
-  e.style.setProperty("--tilt", ((Math.abs(h) % 9) - 4) * 0.35 + "deg"); // 단서마다 조금씩 다르게 기울임
+  e.style.setProperty("--tilt", ((Math.abs(h) % 9) - 4) * 0.3 + "deg"); e.style.marginLeft = `${6 + Math.abs(h >> 4) % 14}px`; // 단서마다 조금씩 다르게 기울이고 왼쪽 여백도 살짝 달리 해 책상에 흩어 놓은 느낌
   return e;
 }
 let foundTimer = 0;

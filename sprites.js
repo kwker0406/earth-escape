@@ -259,6 +259,7 @@ export function sprite(kind, dir = "d", frame = 0) {
       ctx.globalCompositeOperation = "destination-over"; painter(ctx).oval(64, 121, 22, 3, SHADOW); };
     let im = pngs.get(url); // 같은 파일은 한 번만 받아서 풀기(서 있기·걸음 3장이 함께 씀)
     if (!im) { im = new Image(); im.waiting = []; im.onload = () => { im.waiting.forEach(f => f(im)); im.waiting = null; }; im.src = url; pngs.set(url, im); }
+    if (walk && im.waiting) return sprite(kind, dir, 0); // 걷기 그림을 받는 동안 빈 칸이 그려져 캐릭터가 사라졌다 나타남 → 서 있는 그림으로 대신(이 프레임은 저장하지 않음)
     im.waiting ? im.waiting.push(paint) : paint(im);
     cache.set(key, cv); return cv;
   }
