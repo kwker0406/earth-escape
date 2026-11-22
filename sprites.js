@@ -2,7 +2,7 @@
 // 그림 파일 없이 코드로 점을 찍어 만들고, 한 번 만든 그림은 기억해 둔다(sprite).
 // 교복: 검은 머리 학생은 남색 블레이저 + 흰 셔츠, 금발 학생은 블레이저 없이 흰 셔츠. 여학생 붉은 리본 + 남색 치마, 남학생 붉은 넥타이 + 남색 바지
 export const CHARS = [
-  { name: "보브 안경", emoji: "👓", girl: 1, hair: "bob", color: "black", glasses: 1, png: "bob", walk: "du" }, // png: chars/ 폴더의 PixelLab 그림을 씀
+  { name: "보브 안경", emoji: "👓", girl: 1, hair: "bob", color: "black", glasses: 1, png: "bob", walk: "dur" }, // png: chars/ 폴더의 PixelLab 그림을 씀
   { name: "긴 생머리", emoji: "👩", girl: 1, hair: "long", color: "black", png: "long" },
   { name: "땋은 머리", emoji: "👧", girl: 1, hair: "braid", color: "black", png: "braid" },
   { name: "금발 생머리", emoji: "👱‍♀️", girl: 1, hair: "long", color: "blond", png: "blond" },
