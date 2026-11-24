@@ -3,8 +3,8 @@
 // 교복: 검은 머리 학생은 남색 블레이저 + 흰 셔츠, 금발 학생은 블레이저 없이 흰 셔츠. 여학생 붉은 리본 + 남색 치마, 남학생 붉은 넥타이 + 남색 바지
 export const CHARS = [
   { name: "보브 안경", emoji: "👓", girl: 1, hair: "bob", color: "black", glasses: 1, png: "bob", walk: "dur" }, // png: chars/ 폴더의 PixelLab 그림을 씀
-  { name: "긴 생머리", emoji: "👩", girl: 1, hair: "long", color: "black", png: "long", walk: "du" },
-  { name: "땋은 머리", emoji: "👧", girl: 1, hair: "braid", color: "black", png: "braid" },
+  { name: "긴 생머리", emoji: "👩", girl: 1, hair: "long", color: "black", png: "long", walk: "dur" },
+  { name: "땋은 머리", emoji: "👧", girl: 1, hair: "braid", color: "black", png: "braid", walk: "d" },
   { name: "금발 생머리", emoji: "👱‍♀️", girl: 1, hair: "long", color: "blond", png: "blond" },
   { name: "더벅머리 안경", emoji: "🤓", girl: 0, hair: "shaggy", color: "black", glasses: 1, png: "shaggy", walk: "dur" },
   { name: "파마머리", emoji: "👨‍🦱", girl: 0, hair: "perm", color: "black", png: "perm", walk: "dur" },
